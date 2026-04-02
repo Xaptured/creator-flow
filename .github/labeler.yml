@@ -1,0 +1,103 @@
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/**'
+
+auth-service:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/auth-service/**'
+
+media-service:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/media-service/**'
+
+scheduler-service:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/scheduler-service/**'
+
+analytics-service:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/analytics-service/**'
+
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'frontend/**'
+
+ai-service:
+  - changed-files:
+    - any-glob-to-any-file: 'ai-service/**'
+
+infra:
+  - changed-files:
+    - any-glob-to-any-file: 'infra/**'
+
+java:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.java'
+    - any-glob-to-any-file: '**/pom.xml'
+
+javascript:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.js'
+    - any-glob-to-any-file: '**/*.jsx'
+    - any-glob-to-any-file: '**/*.ts'
+    - any-glob-to-any-file: '**/*.tsx'
+    - any-glob-to-any-file: '**/package.json'
+    - any-glob-to-any-file: '**/package-lock.json'
+    - any-glob-to-any-file: '**/pnpm-lock.yaml'
+
+python:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.py'
+    - any-glob-to-any-file: '**/requirements*.txt'
+    - any-glob-to-any-file: '**/pyproject.toml'
+
+terraform:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.tf'
+    - any-glob-to-any-file: '**/*.tfvars'
+
+ci-cd:
+  - changed-files:
+    - any-glob-to-any-file: '.github/workflows/**'
+    - any-glob-to-any-file: '.github/actions/**'
+
+security:
+  - changed-files:
+    - any-glob-to-any-file: 'backend/auth-service/**'
+    - any-glob-to-any-file: '**/SecurityConfig*'
+    - any-glob-to-any-file: '**/KeycloakConfig*'
+    - any-glob-to-any-file: '**/JwtConfig*'
+
+database:
+  - changed-files:
+    - any-glob-to-any-file: '**/db/migration/**'
+    - any-glob-to-any-file: '**/*.sql'
+    - any-glob-to-any-file: '**/flyway*'
+    - any-glob-to-any-file: '**/repository/**'
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.md'
+    - any-glob-to-any-file: 'docs/**'
+
+docker:
+  - changed-files:
+    - any-glob-to-any-file: '**/Dockerfile*'
+    - any-glob-to-any-file: '**/docker-compose*.yml'
+    - any-glob-to-any-file: '**/.dockerignore'
+
+configuration:
+  - changed-files:
+    - any-glob-to-any-file: '**/application*.yml'
+    - any-glob-to-any-file: '**/application*.properties'
+    - any-glob-to-any-file: '**/*.env*'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file: '**/*Test*.java'
+    - any-glob-to-any-file: '**/*Spec*.java'
+    - any-glob-to-any-file: '**/__tests__/**'
+    - any-glob-to-any-file: '**/*.test.*'
+    - any-glob-to-any-file: '**/*.spec.*'
+    - any-glob-to-any-file: '**/test/**'
+    - any-glob-to-any-file: '**/tests/**'

@@ -1,0 +1,210 @@
+version: 2
+
+updates:
+  - package-ecosystem: "maven"
+    directory: "/backend/auth-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+      - "java"
+      - "auth-service"
+    commit-message:
+      prefix: "chore(auth-service)"
+    reviewers:
+      - "@Xaptured"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework.security:*"
+          - "org.springframework.kafka:*"
+      aws-sdk:
+        patterns:
+          - "software.amazon.awssdk:*"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/media-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+      - "java"
+      - "media-service"
+    commit-message:
+      prefix: "chore(media-service)"
+    reviewers:
+      - "@Xaptured"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+      aws-sdk:
+        patterns:
+          - "software.amazon.awssdk:*"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/scheduler-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+      - "java"
+      - "scheduler-service"
+    commit-message:
+      prefix: "chore(scheduler-service)"
+    reviewers:
+      - "@Xaptured"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+      quartz:
+        patterns:
+          - "org.quartz-scheduler:*"
+
+  - package-ecosystem: "maven"
+    directory: "/backend/analytics-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+      - "java"
+      - "analytics-service"
+    commit-message:
+      prefix: "chore(analytics-service)"
+    reviewers:
+      - "@Xaptured"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+      - "javascript"
+    commit-message:
+      prefix: "chore(frontend)"
+    reviewers:
+      - "@Xaptured"
+    ignore:
+      # Pin Next.js major — only take minor/patch automatically
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      # Auth.js is beta — review manually
+      - dependency-name: "next-auth"
+        update-types: ["version-update:semver-major"]
+    groups:
+      nextjs-ecosystem:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "autoprefixer"
+          - "postcss"
+      fullcalendar:
+        patterns:
+          - "@fullcalendar/*"
+      dev-tooling:
+        dependency-type: "development"
+
+  - package-ecosystem: "pip"
+    directory: "/ai-service"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ai-service"
+      - "python"
+    commit-message:
+      prefix: "chore(ai-service)"
+    reviewers:
+      - "@Xaptured"
+    ignore:
+      # Anthropic SDK — review manually (prompts may break on major bumps)
+      - dependency-name: "anthropic"
+        update-types: ["version-update:semver-major"]
+    groups:
+      fastapi-core:
+        patterns:
+          - "fastapi"
+          - "uvicorn"
+          - "mangum"
+          - "pydantic"
+      database:
+        patterns:
+          - "sqlalchemy"
+          - "asyncpg"
+          - "psycopg*"
+          - "pgvector"
+
+  - package-ecosystem: "terraform"
+    directory: "/infra"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "infra"
+      - "terraform"
+    commit-message:
+      prefix: "chore(infra)"
+    reviewers:
+      - "@Xaptured"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci-cd"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+    reviewers:
+      - "@Xaptured"
