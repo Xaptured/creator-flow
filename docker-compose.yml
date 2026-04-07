@@ -1,0 +1,90 @@
+# =============================================================================
+# CreatorFlow — Base Docker Compose
+# Phase 0 · Week 2 · Day 2
+#
+# Credentials are loaded from a .env file (gitignored).
+# Copy .env.example -> .env and fill in your values before running.
+#
+# Services included (Week 2):
+#   ✅ PostgreSQL 16   — primary relational database
+#   ✅ Redis 7         — cache, rate limits, token storage
+#
+# Services to be added in later phases:
+#   🔜 Keycloak 24     — Week 3  (Phase 1: Auth)
+#   🔜 LocalStack      — Week 11 (Phase 3: SNS/SQS)
+#   🔜 Grafana + Loki  — Week 24 (Phase 5: Observability)
+# =============================================================================
+
+version: "3.9"
+
+# ---------------------------------------------------------------------------
+# Named volumes — data persists across container restarts
+# ---------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ---------------------------------------------------------------------------
+# Networks — all services share one internal network
+# ---------------------------------------------------------------------------
+networks:
+  creatorflow_net:
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # --------------------------------------------------------------------------
+  # PostgreSQL 16
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: creatorflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"                           # host:container — accessible from IntelliJ / DBeaver
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/db/init:/docker-entrypoint-initdb.d  # optional: place seed SQL files here
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - creatorflow_net
+
+  # --------------------------------------------------------------------------
+  # Redis 7
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: creatorflow_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory ${REDIS_MAX_MEMORY}
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    ports:
+      - "6379:6379"                           # host:container — accessible from redis-cli locally
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - creatorflow_net
