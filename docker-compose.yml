@@ -1,18 +1,24 @@
 # =============================================================================
-# CreatorFlow — Base Docker Compose
-# Phase 0 · Week 2 · Day 2
+# CreatorFlow — Docker Compose
+# Phase 1 · Week 3 · Day 2
 #
 # Credentials are loaded from a .env file (gitignored).
 # Copy .env.example -> .env and fill in your values before running.
 #
-# Services included (Week 2):
+# Services included:
 #   ✅ PostgreSQL 16   — primary relational database
 #   ✅ Redis 7         — cache, rate limits, token storage
+#   ✅ Keycloak 24     — identity provider (OAuth 2.0 + OIDC)
 #
 # Services to be added in later phases:
-#   🔜 Keycloak 24     — Week 3  (Phase 1: Auth)
 #   🔜 LocalStack      — Week 11 (Phase 3: SNS/SQS)
 #   🔜 Grafana + Loki  — Week 24 (Phase 5: Observability)
+#
+# Quick start:
+#   docker compose up -d
+#   Keycloak admin console → http://localhost:8080  (admin / admin)
+#   PostgreSQL             → localhost:5432
+#   Redis                  → localhost:6379
 # =============================================================================
 
 version: "3.9"
@@ -24,6 +30,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  keycloak_data:
     driver: local
 
 # ---------------------------------------------------------------------------
@@ -86,5 +94,58 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - creatorflow_net
+
+  # --------------------------------------------------------------------------
+  # Keycloak 24
+  # Phase 1 · Week 3 · Day 2
+  #
+  # Admin console: http://localhost:8080
+  # Credentials:   admin / admin  (dev only — never use in production)
+  #
+  # Next steps after first boot:
+  #   1. Log in to admin console at http://localhost:8080
+  #   2. Create realm: creatorflow
+  #   3. Create client: creatorflow-app  (OpenID Connect, confidential)
+  #   4. Create roles: CREATOR, ADMIN, VIEWER
+  #   5. Create 3 test users — assign one role each
+  #   6. Test token issuance via Postman (password grant)
+  # --------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: creatorflow_keycloak
+    restart: unless-stopped
+    command: start-dev                        # dev mode: no TLS required, fast startup
+    environment:
+      # Admin credentials (dev only)
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Point Keycloak at the Postgres DB instead of the default H2 in-memory DB.
+      # This means realm/user config survives container restarts.
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Hostname config for dev — no strict hostname checking
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+
+    ports:
+      - "8080:8080"                           # Admin console + token endpoints
+    volumes:
+      - keycloak_data:/opt/keycloak/data      # Persist realm data across restarts
+    depends_on:
+      postgres:
+        condition: service_healthy            # Wait for Postgres to be ready before starting
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s                       # Keycloak takes ~30-45s to start in dev mode
     networks:
       - creatorflow_net
