@@ -9,7 +9,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.List;
@@ -21,7 +20,8 @@ import java.util.stream.Collectors;
 @EnableMethodSecurity
 public class WebSecurityConfig {
 
-    private static final String AUTHORITIES_CLAIM_NAME = "realm_access.roles";
+    private static final String AUTHORITIES_CLAIM_NAME = "realm_access";
+    private static final String AUTHORITY_KEY = "roles";
     private static final String AUTHORITY_PREFIX = "ROLE_";
 
     @Bean
@@ -39,13 +39,13 @@ public class WebSecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
         jwtConverter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-            if (realmAccess == null || !realmAccess.containsKey("roles")) {
+            Map<String, Object> realmAccess = jwt.getClaimAsMap(AUTHORITIES_CLAIM_NAME);
+            if (realmAccess == null || !realmAccess.containsKey(AUTHORITY_KEY)) {
                 return List.of();
             }
-            List<String> roles = (List<String>) realmAccess.get("roles");
+            List<String> roles = (List<String>) realmAccess.get(AUTHORITY_KEY);
             return roles.stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .map(role -> new SimpleGrantedAuthority(AUTHORITY_PREFIX + role))
                     .collect(Collectors.toList());
         });
         return jwtConverter;
