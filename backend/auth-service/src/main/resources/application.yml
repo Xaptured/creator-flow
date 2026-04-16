@@ -46,9 +46,10 @@ spring:
   # Replace with Keycloak in Phase 1 (Week 3)
   # ---------------------------------------------------------------------------
   security:
-    user:
-      name: ${SPRING_SECURITY_USER_NAME}
-      password: ${SPRING_SECURITY_USER_PASSWORD}
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/creatorflow
 
   # ---------------------------------------------------------------------------
   # Flyway — DB migrations
