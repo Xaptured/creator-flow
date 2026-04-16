@@ -119,8 +119,8 @@ services:
     command: start-dev                        # dev mode: no TLS required, fast startup
     environment:
       # Admin credentials (dev only)
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
 
       # Point Keycloak at the Postgres DB instead of the default H2 in-memory DB.
       # This means realm/user config survives container restarts.
