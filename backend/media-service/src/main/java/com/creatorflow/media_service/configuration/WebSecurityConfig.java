@@ -1,4 +1,4 @@
-package com.creatorflow.auth_service.configuration;
+package com.creatorflow.media_service.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
