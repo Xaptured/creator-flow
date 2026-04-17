@@ -1,5 +1,13 @@
 # CreatorFlow
 
+![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-brightgreen?logo=springboot)
+![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=nextdotjs)
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
+
+[![CI](https://github.com/Xaptured/creator-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/Xaptured/creator-flow/actions/workflows/ci.yml)
+[![Dependabot Updates](https://github.com/Xaptured/creator-flow/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/Xaptured/creator-flow/actions/workflows/dependabot/dependabot-updates)
+
 > AI-powered content studio for creators — schedule, publish, and analyze content across YouTube, Instagram, and Twitter/X from a single workspace.
 
 ---
