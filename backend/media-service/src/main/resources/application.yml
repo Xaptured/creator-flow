@@ -73,12 +73,14 @@ spring:
           max-active: 8
           max-idle: 4
           min-idle: 1
+  profiles:
+    active: ${APP_ENV}
 
 # ---------------------------------------------------------------------------
 # Server
 # ---------------------------------------------------------------------------
 server:
-  port: ${MEDIA_SERVER_PORT:8082}           # defaults to 8081 if SERVER_PORT not set
+  port: ${MEDIA_SERVER_PORT}           # defaults to 8081 if SERVER_PORT not set
   servlet:
     context-path: /creator-flow/media
 
@@ -93,3 +95,15 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs           # raw OpenAPI JSON
+  swagger-ui:
+    path: /swagger-ui.html       # UI entry point
+    operations-sorter: alpha     # sort endpoints A-Z
+    tags-sorter: alpha
+    display-request-duration: true
+    try-it-out-enabled: true     # enable "Try it out" by default
+  show-actuator: false           # don't expose actuator in Swagger
+  default-produces-media-type: application/json

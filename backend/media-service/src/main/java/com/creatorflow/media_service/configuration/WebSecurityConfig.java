@@ -23,12 +23,20 @@ public class WebSecurityConfig {
     private static final String AUTHORITIES_CLAIM_NAME = "realm_access";
     private static final String AUTHORITY_KEY = "roles";
     private static final String AUTHORITY_PREFIX = "ROLE_";
+    private static final String[] SWAGGER_UI_URLS = {
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/v3/api-docs",
+            "/v3/api-docs/**"
+    };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health").permitAll()
+        http.authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health").permitAll().requestMatchers(
+                        SWAGGER_UI_URLS
+                ).permitAll()
                                                                                 .anyRequest().authenticated());
         http.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
