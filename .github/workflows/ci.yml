@@ -39,26 +39,52 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check if pom.xml exists
+        id: check
+        run: |
+          if [ -f "backend/scheduler-service/pom.xml" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/setup-java@v4
+        if: steps.check.outputs.exists == 'true'
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
       - name: Build
+        if: steps.check.outputs.exists == 'true'
         run: mvn -f backend/scheduler-service/pom.xml clean verify -DskipTests
+      - name: Skip
+        if: steps.check.outputs.exists == 'false'
+        run: echo "scheduler-service not scaffolded yet — skipping"
 
   build-analytics-service:
     name: Build analytics-service
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check if pom.xml exists
+        id: check
+        run: |
+          if [ -f "backend/analytics-service/pom.xml" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/setup-java@v4
+        if: steps.check.outputs.exists == 'true'
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
       - name: Build
+        if: steps.check.outputs.exists == 'true'
         run: mvn -f backend/analytics-service/pom.xml clean verify -DskipTests
+      - name: Skip
+        if: steps.check.outputs.exists == 'false'
+        run: echo "analytics-service not scaffolded yet — skipping"
 
   # ── Next.js frontend ─────────────────────────────────────────────
   build-frontend:
