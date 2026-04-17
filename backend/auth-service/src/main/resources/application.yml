@@ -1,21 +1,7 @@
-# =============================================================================
-# CreatorFlow — Spring Boot Application Configuration
-# auth-service (same pattern applies to media-service, scheduler-service)
-#
-# Credentials are NEVER hardcoded here.
-# All sensitive values are injected via environment variables.
-#
-# Local dev:  values come from your .env file (loaded by docker-compose or IDE)
-# Production: values come from AWS Secrets Manager / ECS task definition env vars
-# =============================================================================
-
 spring:
   application:
     name: auth-service
 
-  # ---------------------------------------------------------------------------
-  # DataSource — PostgreSQL 16
-  # ---------------------------------------------------------------------------
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
     username: ${DB_USERNAME}
@@ -24,44 +10,31 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
-      connection-timeout: 30000       # 30 seconds
-      idle-timeout: 600000            # 10 minutes
-      max-lifetime: 1800000           # 30 minutes
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
       pool-name: CreatorFlowHikariPool
 
-  # ---------------------------------------------------------------------------
-  # JPA / Hibernate
-  # ---------------------------------------------------------------------------
   jpa:
     hibernate:
-      ddl-auto: validate              # Flyway manages schema — never use create/update here
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-  # ---------------------------------------------------------------------------
-  # Spring Security — default in-memory user (dev only)
-  # Replace with Keycloak in Phase 1 (Week 3)
-  # ---------------------------------------------------------------------------
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8080/realms/creatorflow
 
-  # ---------------------------------------------------------------------------
-  # Flyway — DB migrations
-  # ---------------------------------------------------------------------------
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  # ---------------------------------------------------------------------------
-  # Redis 7
-  # ---------------------------------------------------------------------------
   data:
     redis:
       host: ${REDIS_HOST}
@@ -77,17 +50,11 @@ spring:
   profiles:
     active: ${APP_ENV}
 
-# ---------------------------------------------------------------------------
-# Server
-# ---------------------------------------------------------------------------
 server:
-  port: ${AUTH_SERVER_PORT}           # defaults to 8081 if SERVER_PORT not set
+  port: ${AUTH_SERVER_PORT}
   servlet:
     context-path: /creator-flow/auth
 
-# ---------------------------------------------------------------------------
-# Actuator — health checks
-# ---------------------------------------------------------------------------
 management:
   endpoints:
     web:
@@ -99,12 +66,12 @@ management:
 
 springdoc:
   api-docs:
-    path: /v3/api-docs           # raw OpenAPI JSON
+    path: /v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html       # UI entry point
-    operations-sorter: alpha     # sort endpoints A-Z
+    path: /swagger-ui.html
+    operations-sorter: alpha
     tags-sorter: alpha
     display-request-duration: true
-    try-it-out-enabled: true     # enable "Try it out" by default
-  show-actuator: false           # don't expose actuator in Swagger
+    try-it-out-enabled: true
+  show-actuator: false
   default-produces-media-type: application/json
