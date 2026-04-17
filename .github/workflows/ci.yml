@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ── Spring Boot services ──────────────────────────────────────────
+  build-auth-service:
+    name: Build auth-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build
+        run: mvn -f backend/auth-service/pom.xml clean verify -DskipTests
+
+  build-media-service:
+    name: Build media-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build
+        run: mvn -f backend/media-service/pom.xml clean verify -DskipTests
+
+  build-scheduler-service:
+    name: Build scheduler-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build
+        run: mvn -f backend/scheduler-service/pom.xml clean verify -DskipTests
+
+  build-analytics-service:
+    name: Build analytics-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build
+        run: mvn -f backend/analytics-service/pom.xml clean verify -DskipTests
+
+  # ── Next.js frontend ─────────────────────────────────────────────
+  build-frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci --prefix frontend
+      - name: Build
+        run: npm run build --prefix frontend
+
+  # ── Python AI service ─────────────────────────────────────────────
+  build-ai-service:
+    name: Build ai-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install
+        run: pip install -r ai-service/requirements.txt
