@@ -7,7 +7,7 @@ export default function LogoutButton() {
       "use server"
       await signOut({
         redirectTo: 
-          `http://localhost:8080/realms/creatorflow/protocol/openid-connect/logout?client_id=creatorflow-app&post_logout_redirect_uri=http://localhost:3000/login`
+          `http://localhost:8080/realms/creatorflow/protocol/openid-connect/logout?client_id=creatorflow-app&post_logout_redirect_uri=http://localhost:3000/`
       })
     }}>
       <button type="submit">Sign Out</button>
