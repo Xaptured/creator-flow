@@ -79,7 +79,6 @@ export default function WaitlistCTA() {
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-pill btn-primary"
                 className={`btn-pill btn-primary whitespace-nowrap border-none ${loading ? 'opacity-70 cursor-wait' : 'opacity-100 cursor-pointer'}`}
               >
                 {loading ? 'Joining…' : 'Get Early Access'}

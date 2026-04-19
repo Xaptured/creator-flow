@@ -8,7 +8,7 @@ export default auth((req) => {
                       req.nextUrl.pathname.startsWith("/analytics")
 
   if (isProtected && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    return NextResponse.redirect(new URL("/", req.url))
   }
 })
 
