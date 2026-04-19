@@ -74,3 +74,9 @@ springdoc:
     try-it-out-enabled: true
   show-actuator: false
   default-produces-media-type: application/json
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - https://localhost:3000
