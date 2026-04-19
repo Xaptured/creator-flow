@@ -40,66 +40,25 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer
-      style={{
-        background: 'var(--th-bg-primary)',
-        borderTop: '1px solid var(--th-border)',
-        padding: '48px 20px 32px',
-      }}
-    >
-      <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+    <footer className="bg-th-bg-primary border-t border-th-border pt-12 pb-8 px-5">
+      <div className="max-w-[980px] mx-auto">
         {/* Top row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '24px',
-            marginBottom: '40px',
-            paddingBottom: '32px',
-            borderBottom: '1px solid var(--th-border-card)',
-          }}
-        >
+        <div className="flex items-center justify-between flex-wrap gap-6 mb-10 pb-8 border-b border-th-border-card">
           {/* Logo */}
           <a
             href="#"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              textDecoration: 'none',
-            }}
+            className="flex items-center gap-2 no-underline"
           >
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '28px',
-                height: '28px',
-                background: '#0071e3',
-                borderRadius: '8px',
-                fontSize: '16px',
-              }}
-            >
+            <span className="inline-flex items-center justify-center w-7 h-7 bg-th-accent-blue rounded-lg text-base">
               ⚡
             </span>
-            <span
-              style={{
-                fontFamily: 'var(--cf-font-display)',
-                fontWeight: 600,
-                fontSize: '17px',
-                letterSpacing: '-0.3px',
-                color: 'var(--th-text-primary)',
-              }}
-            >
+            <span className="font-display font-semibold text-[17px] tracking-[-0.3px] text-th-text-primary">
               CreatorFlow
             </span>
           </a>
 
           {/* Social links */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="flex items-center gap-4">
             {footerLinks.map((link) => (
               <a
                 key={link.label}
@@ -107,26 +66,7 @@ export default function Footer() {
                 target={link.external ? '_blank' : undefined}
                 rel={link.external ? 'noopener noreferrer' : undefined}
                 aria-label={link.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'var(--th-border)',
-                  color: 'var(--th-text-body)',
-                  textDecoration: 'none',
-                  transition: 'background 0.2s, color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(0,113,227,0.12)';
-                  (e.currentTarget as HTMLAnchorElement).style.color = '#0071e3';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'var(--th-border)';
-                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--th-text-body)';
-                }}
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-th-border text-th-text-body no-underline transition-colors hover:bg-[rgba(0,113,227,0.12)] hover:text-th-accent-blue"
               >
                 {link.icon}
               </a>
@@ -135,41 +75,17 @@ export default function Footer() {
         </div>
 
         {/* Bottom row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '16px',
-          }}
-        >
-          <p
-            style={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: '12px',
-              color: 'var(--th-section-label)',
-              letterSpacing: '-0.12px',
-            }}
-          >
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <p className="font-text text-xs text-th-section-label tracking-[-0.12px]">
             © {currentYear} CreatorFlow. All rights reserved.
           </p>
 
-          <div style={{ display: 'flex', gap: '24px' }}>
+          <div className="flex gap-6">
             {legalLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                style={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: '12px',
-                  color: 'var(--th-section-label)',
-                  textDecoration: 'none',
-                  letterSpacing: '-0.12px',
-                  transition: 'color 0.2s',
-                }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--th-text-primary)')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--th-section-label)')}
+                className="font-text text-xs text-th-section-label no-underline tracking-[-0.12px] transition-colors hover:text-th-text-primary"
               >
                 {link.label}
               </a>

@@ -2,114 +2,41 @@
 
 export default function Hero() {
   return (
-    <section
-      style={{
-        background: 'var(--th-bg-primary)',
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '120px 20px 80px',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
+    <section className="bg-th-bg-primary min-h-screen flex flex-col items-center justify-center pt-[120px] pb-20 px-5 text-center relative overflow-hidden">
       {/* Subtle radial glow behind hero */}
       <div
         aria-hidden
-        style={{
-          position: 'absolute',
-          top: '30%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '600px',
-          height: '600px',
-          background: 'radial-gradient(circle, rgba(0,113,227,0.12) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }}
+        className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(0,113,227,0.12) 0%, transparent 70%)' }}
       />
 
-      <div
-        className="max-w-[740px] mx-auto animate-fade-in-up"
-        style={{ position: 'relative', zIndex: 1 }}
-      >
+      <div className="max-w-[740px] mx-auto animate-fade-in-up relative z-10">
         {/* Eyebrow tag */}
-        <div
-          className="animate-fade-in-up"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '5px 14px',
-            borderRadius: '980px',
-            border: '1px solid rgba(41,151,255,0.4)',
-            background: 'rgba(41,151,255,0.08)',
-            marginBottom: '28px',
-          }}
-        >
-          <span style={{ fontSize: '12px', color: 'var(--th-eyebrow-color)', letterSpacing: '-0.12px', fontFamily: 'var(--cf-font-text)' }}>
+        <div className="animate-fade-in-up inline-flex items-center gap-[6px] py-[5px] px-[14px] rounded-[980px] border border-[rgba(41,151,255,0.4)] bg-[rgba(41,151,255,0.08)] mb-7">
+          <span className="text-xs text-th-eyebrow tracking-[-0.12px] font-text">
             ⚡ AI-Powered Content Studio
           </span>
         </div>
 
         {/* Hero Headline */}
-        <h1
-          className="text-hero animate-fade-in-up delay-100"
-          style={{
-            color: 'var(--th-text-primary)',
-            marginBottom: '20px',
-            textWrap: 'balance',
-          }}
-        >
+        <h1 className="text-hero animate-fade-in-up delay-100 text-th-text-primary mb-5 [text-wrap:balance]">
           Stop switching tabs.<br />
           Start growing your audience.
         </h1>
 
         {/* Sub-headline */}
-        <p
-          className="animate-fade-in-up delay-200"
-          style={{
-            fontFamily: 'var(--cf-font-display)',
-            fontSize: 'clamp(1.1rem, 2vw, 1.31rem)',
-            fontWeight: 400,
-            lineHeight: 1.47,
-            color: 'var(--th-text-secondary)',
-            marginBottom: '36px',
-            maxWidth: '560px',
-            margin: '0 auto 36px',
-          }}
-        >
+        <p className="animate-fade-in-up delay-200 font-display text-[clamp(1.1rem,2vw,1.31rem)] font-normal leading-[1.47] text-th-text-secondary max-w-[560px] mx-auto mb-9">
           Creators waste hours juggling tools to schedule, post, and analyze across YouTube, Instagram, and Twitter/X.
           CreatorFlow does it all in one place — powered by AI.
         </p>
 
         {/* Tagline */}
-        <p
-          className="animate-fade-in-up delay-300"
-          style={{
-            fontFamily: 'var(--cf-font-text)',
-            fontSize: '14px',
-            fontWeight: 400,
-            color: 'var(--th-text-tertiary)',
-            marginBottom: '40px',
-            letterSpacing: '-0.224px',
-          }}
-        >
+        <p className="animate-fade-in-up delay-300 font-text text-sm font-normal text-th-text-tertiary mb-10 tracking-[-0.224px]">
           Schedule smarter. Create faster. Grow bigger.
         </p>
 
         {/* CTAs */}
-        <div
-          className="animate-fade-in-up delay-300"
-          style={{
-            display: 'flex',
-            gap: '16px',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="animate-fade-in-up delay-300 flex gap-4 justify-center flex-wrap">
           <a href="#waitlist" className="btn-pill btn-primary animate-glow">
             Get Early Access
           </a>
@@ -120,59 +47,22 @@ export default function Hero() {
       </div>
 
       {/* Dashboard Mockup */}
-      <div
-        className="animate-fade-in-up delay-500 animate-float"
-        style={{
-          marginTop: '72px',
-          maxWidth: '880px',
-          width: '100%',
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
-        <div
-          style={{
-            background: 'var(--th-bg-secondary)',
-            borderRadius: '12px',
-            border: '1px solid var(--th-border)',
-            boxShadow: '0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
-            overflow: 'hidden',
-          }}
-        >
+      <div className="animate-fade-in-up delay-500 animate-float mt-[72px] max-w-[880px] w-full relative z-10">
+        <div className="bg-th-bg-secondary rounded-xl border border-th-border shadow-hero-mockup overflow-hidden">
           {/* Window chrome */}
-          <div
-            style={{
-              background: 'var(--th-bg-card)',
-              padding: '12px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              borderBottom: '1px solid var(--th-border-card)',
-            }}
-          >
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', display: 'inline-block' }} />
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', display: 'inline-block' }} />
-            <span style={{ flex: 1, textAlign: 'center', fontSize: '12px', color: 'var(--th-section-label)', fontFamily: 'var(--cf-font-text)' }}>
+          <div className="bg-th-bg-card py-3 px-4 flex items-center gap-2 border-b border-th-border-card">
+            <span className="w-3 h-3 rounded-full bg-[#ff5f57] inline-block" />
+            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block" />
+            <span className="w-3 h-3 rounded-full bg-[#28c840] inline-block" />
+            <span className="flex-1 text-center text-xs text-th-section-label font-text">
               CreatorFlow Dashboard
             </span>
           </div>
 
           {/* Dashboard body */}
-          <div style={{ display: 'flex', height: '420px' }}>
+          <div className="flex h-[420px]">
             {/* Sidebar */}
-            <div
-              style={{
-                width: '200px',
-                background: 'var(--th-bg-secondary)',
-                borderRight: '1px solid var(--th-border)',
-                padding: '20px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                flexShrink: 0,
-              }}
-            >
+            <div className="w-[200px] bg-th-bg-secondary border-r border-th-border py-5 px-3 flex flex-col gap-1 shrink-0">
               {[
                 { icon: '📊', label: 'Dashboard', active: false },
                 { icon: '📅', label: 'Calendar', active: true },
@@ -183,18 +73,7 @@ export default function Hero() {
               ].map((item) => (
                 <div
                   key={item.label}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    background: item.active ? 'rgba(0,113,227,0.2)' : 'transparent',
-                    color: item.active ? '#2997ff' : 'var(--th-text-tertiary)',
-                    fontSize: '13px',
-                    fontFamily: 'var(--cf-font-text)',
-                    cursor: 'default',
-                  }}
+                  className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-[13px] font-text cursor-default ${item.active ? 'bg-[rgba(0,113,227,0.2)] text-[#2997ff]' : 'bg-transparent text-th-text-tertiary'}`}
                 >
                   <span>{item.icon}</span>
                   <span>{item.label}</span>
@@ -203,25 +82,17 @@ export default function Hero() {
             </div>
 
             {/* Main content */}
-            <div style={{ flex: 1, padding: '20px', overflow: 'hidden' }}>
+            <div className="flex-1 p-5 overflow-hidden">
               {/* Header row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ fontFamily: 'var(--cf-font-display)', fontSize: '18px', fontWeight: 600, color: 'var(--th-text-primary)' }}>
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="font-display text-[18px] font-semibold text-th-text-primary">
                   Content Calendar
                 </h2>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="flex gap-2">
                   {['YouTube', 'Instagram', 'Twitter/X'].map((p) => (
                     <span
                       key={p}
-                      style={{
-                        padding: '3px 10px',
-                        borderRadius: '980px',
-                        background: 'var(--th-border)',
-                        fontSize: '11px',
-                        color: 'var(--th-text-tertiary)',
-                        fontFamily: 'var(--cf-font-text)',
-                        border: '1px solid var(--th-border)',
-                      }}
+                      className="py-[3px] px-2.5 rounded-[980px] bg-th-border text-[11px] text-th-text-tertiary font-text border border-th-border"
                     >
                       {p}
                     </span>
@@ -230,20 +101,9 @@ export default function Hero() {
               </div>
 
               {/* Calendar grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
+              <div className="grid grid-cols-[repeat(7,1fr)] gap-[6px]">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                  <div
-                    key={d}
-                    style={{
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      color: 'var(--th-section-label)',
-                      padding: '4px 0',
-                      fontFamily: 'var(--cf-font-text)',
-                    }}
-                  >
-                    {d}
-                  </div>
+                  <div key={d} className="text-center text-[11px] text-th-section-label py-1 font-text">{d}</div>
                 ))}
                 {Array.from({ length: 28 }).map((_, i) => {
                   const hasPost = [2, 5, 8, 11, 14, 16, 19, 22].includes(i);
@@ -252,27 +112,15 @@ export default function Hero() {
                   return (
                     <div
                       key={i}
-                      style={{
-                        aspectRatio: '1',
-                        borderRadius: '6px',
-                        background: isToday ? 'rgba(0,113,227,0.18)' : 'var(--th-border)',
-                        border: isToday ? '1px solid rgba(0,113,227,0.5)' : '1px solid var(--th-border)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '3px',
-                        padding: '4px',
-                        position: 'relative',
-                      }}
+                      className={`aspect-square rounded-md flex flex-col items-center justify-center gap-[3px] p-1 relative ${isToday ? 'bg-[rgba(0,113,227,0.18)] border border-[rgba(0,113,227,0.5)]' : 'bg-th-border border border-th-border'}`}
                     >
-                      <span style={{ fontSize: '10px', color: isToday ? '#2997ff' : 'var(--th-text-tertiary)', fontFamily: 'var(--cf-font-text)' }}>
+                      <span className={`text-[10px] font-text ${isToday ? 'text-[#2997ff]' : 'text-th-text-tertiary'}`}>
                         {i + 1}
                       </span>
                       {hasPost && (
-                        <div style={{ display: 'flex', gap: '2px' }}>
-                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: postColors[i % 3] }} />
-                          {i % 4 === 0 && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: postColors[(i + 1) % 3] }} />}
+                        <div className="flex gap-[2px]">
+                          <span className="w-[5px] h-[5px] rounded-full" style={{ background: postColors[i % 3] }} />
+                          {i % 4 === 0 && <span className="w-[5px] h-[5px] rounded-full" style={{ background: postColors[(i + 1) % 3] }} />}
                         </div>
                       )}
                     </div>
@@ -281,20 +129,9 @@ export default function Hero() {
               </div>
 
               {/* AI insight strip */}
-              <div
-                style={{
-                  marginTop: '16px',
-                  padding: '12px 16px',
-                  background: 'rgba(0,113,227,0.1)',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(0,113,227,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                }}
-              >
-                <span style={{ fontSize: '18px' }}>✨</span>
-                <span style={{ fontSize: '12px', color: 'var(--th-eyebrow-color)', fontFamily: 'var(--cf-font-text)' }}>
+              <div className="mt-4 py-3 px-4 bg-[rgba(0,113,227,0.1)] rounded-lg border border-[rgba(0,113,227,0.2)] flex items-center gap-2.5">
+                <span className="text-[18px]">✨</span>
+                <span className="text-xs text-th-eyebrow font-text">
                   AI Insight: Your audience engages 3× more on Tuesday mornings. 2 posts scheduled for peak time.
                 </span>
               </div>
@@ -305,17 +142,7 @@ export default function Hero() {
         {/* Glow under mockup */}
         <div
           aria-hidden
-          style={{
-            position: 'absolute',
-            bottom: '-30px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '60%',
-            height: '60px',
-            background: 'rgba(0,113,227,0.15)',
-            filter: 'blur(30px)',
-            borderRadius: '50%',
-          }}
+          className="absolute -bottom-[30px] left-1/2 -translate-x-1/2 w-[60%] h-[60px] bg-[rgba(0,113,227,0.15)] blur-[30px] rounded-full"
         />
       </div>
 </section>

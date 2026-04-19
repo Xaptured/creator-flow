@@ -44,19 +44,19 @@ const testimonials = [
 
 function YouTubeLogo() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <div className="flex items-center gap-2.5">
       <svg width="32" height="22" viewBox="0 0 32 22" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect width="32" height="22" rx="5" fill="#FF0000"/>
         <polygon points="13,6 24,11 13,16" fill="white"/>
       </svg>
-      <span style={{ fontFamily: 'var(--cf-font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--th-text-body)', letterSpacing: '-0.2px' }}>YouTube</span>
+      <span className="font-display text-base font-bold text-th-text-body tracking-[-0.2px]">YouTube</span>
     </div>
   );
 }
 
 function InstagramLogo() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <div className="flex items-center gap-2.5">
       <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="igGrad2" x1="0" y1="26" x2="26" y2="0">
@@ -71,18 +71,18 @@ function InstagramLogo() {
         <circle cx="13" cy="13" r="5.5" stroke="url(#igGrad2)" strokeWidth="2.2" fill="none"/>
         <circle cx="20" cy="6" r="1.5" fill="url(#igGrad2)"/>
       </svg>
-      <span style={{ fontFamily: 'var(--cf-font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--th-text-body)', letterSpacing: '-0.2px' }}>Instagram</span>
+      <span className="font-display text-base font-bold text-th-text-body tracking-[-0.2px]">Instagram</span>
     </div>
   );
 }
 
 function TwitterXLogo() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <div className="flex items-center gap-2.5">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
       </svg>
-      <span style={{ fontFamily: 'var(--cf-font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--th-text-body)', letterSpacing: '-0.2px' }}>Twitter / X</span>
+      <span className="font-display text-base font-bold text-th-text-body tracking-[-0.2px]">Twitter / X</span>
     </div>
   );
 }
@@ -91,56 +91,22 @@ export default function SocialProof() {
   return (
     <section
       id="social-proof"
-      style={{
-        background: 'var(--th-bg-primary)',
-        padding: 'clamp(60px, 8vw, 120px) 20px',
-      }}
+      className="bg-th-bg-primary py-[clamp(60px,8vw,120px)] px-5"
     >
-      <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+      <div className="max-w-[980px] mx-auto">
 
         {/* Stats strip */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1px',
-            background: 'var(--th-border)',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            marginBottom: '80px',
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[1px] bg-th-border rounded-xl overflow-hidden mb-20">
           {stats.map((stat) => (
             <div
               key={stat.label}
-              style={{
-                background: 'var(--th-stat-bg)',
-                padding: '40px 24px',
-                textAlign: 'center',
-              }}
+              className="bg-th-stat-bg py-10 px-6 text-center"
             >
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>{stat.icon}</div>
-              <div
-                style={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: 'clamp(2rem, 4vw, 3rem)',
-                  fontWeight: 600,
-                  color: 'var(--th-text-primary)',
-                  lineHeight: 1.07,
-                  letterSpacing: '-0.28px',
-                  marginBottom: '8px',
-                }}
-              >
+              <div className="text-[32px] mb-2">{stat.icon}</div>
+              <div className="font-display text-[clamp(2rem,4vw,3rem)] font-semibold text-th-text-primary leading-[1.07] tracking-[-0.28px] mb-2">
                 {stat.value}
               </div>
-              <div
-                style={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: '14px',
-                  color: 'var(--th-text-tertiary)',
-                  letterSpacing: '-0.224px',
-                }}
-              >
+              <div className="font-text text-sm text-th-text-tertiary tracking-[-0.224px]">
                 {stat.label}
               </div>
             </div>
@@ -148,28 +114,11 @@ export default function SocialProof() {
         </div>
 
         {/* Platform logos */}
-        <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-          <p
-            style={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: '12px',
-              color: 'var(--th-section-label)',
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              marginBottom: '28px',
-            }}
-          >
+        <div className="text-center mb-16">
+          <p className="font-text text-xs text-th-section-label tracking-[1px] uppercase mb-7">
             Connects with your favorite platforms
           </p>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '48px',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="flex items-center justify-center gap-12 flex-wrap">
             <YouTubeLogo />
             <InstagramLogo />
             <TwitterXLogo />
@@ -177,119 +126,43 @@ export default function SocialProof() {
         </div>
 
         {/* Testimonials heading */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <h2
-            className="text-section-heading"
-            style={{ color: 'var(--th-text-primary)', marginBottom: '12px' }}
-          >
+        <div className="text-center mb-12">
+          <h2 className="text-section-heading text-th-text-primary mb-3">
             Creators are already talking.
           </h2>
-          <p
-            style={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: '1.06rem',
-              color: 'var(--th-text-tertiary)',
-              letterSpacing: '-0.374px',
-            }}
-          >
+          <p className="font-text text-[1.06rem] text-th-text-tertiary tracking-[-0.374px]">
             Early access results from our beta community.
           </p>
         </div>
 
         {/* Testimonial cards */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '20px',
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
           {testimonials.map((t) => (
             <div
               key={t.name}
-              style={{
-                background: 'var(--th-bg-card)',
-                borderRadius: '12px',
-                padding: '28px',
-                border: '1px solid var(--th-border-card)',
-                boxShadow: 'rgba(0,0,0,0.22) 3px 5px 30px 0px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-              }}
+              className="bg-th-bg-card rounded-xl p-7 border border-th-border-card shadow-social-proof flex flex-col gap-4"
             >
               {/* Quote */}
-              <p
-                style={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: '15px',
-                  color: 'var(--th-text-body)',
-                  lineHeight: 1.6,
-                  letterSpacing: '-0.224px',
-                  flex: 1,
-                }}
-              >
+              <p className="font-text text-[15px] text-th-text-body leading-[1.6] tracking-[-0.224px] flex-1">
                 &ldquo;{t.quote}&rdquo;
               </p>
 
               {/* Author */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+              <div className="flex items-center gap-3 mt-1">
                 {/* Avatar */}
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: 'rgba(0,113,227,0.3)',
-                    border: '1px solid rgba(0,113,227,0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: 'var(--cf-font-display)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--th-eyebrow-color)',
-                    flexShrink: 0,
-                  }}
-                >
+                <div className="w-10 h-10 rounded-full bg-[rgba(0,113,227,0.3)] border border-[rgba(0,113,227,0.4)] flex items-center justify-center font-display text-[13px] font-semibold text-th-eyebrow shrink-0">
                   {t.avatar}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: 'var(--cf-font-display)',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: 'var(--th-text-primary)',
-                      letterSpacing: '-0.224px',
-                    }}
-                  >
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-sm font-semibold text-th-text-primary tracking-[-0.224px]">
                     {t.name}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: 'var(--cf-font-text)',
-                      fontSize: '12px',
-                      color: 'var(--th-text-tertiary)',
-                      letterSpacing: '-0.12px',
-                    }}
-                  >
+                  <div className="font-text text-xs text-th-text-tertiary tracking-[-0.12px]">
                     {t.handle} · {t.subs}
                   </div>
                 </div>
                 {/* Platform badge */}
-                <div
-                  style={{
-                    padding: '3px 10px',
-                    borderRadius: '980px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid var(--th-border)',
-                    fontSize: '11px',
-                    color: 'var(--th-text-tertiary)',
-                    fontFamily: 'var(--cf-font-text)',
-                    flexShrink: 0,
-                  }}
-                >
+                <div className="py-[3px] px-2.5 rounded-[980px] bg-[rgba(255,255,255,0.06)] border border-th-border text-[11px] text-th-text-tertiary font-text shrink-0">
                   {t.platform}
                 </div>
               </div>

@@ -49,136 +49,52 @@ export default function Features() {
   return (
     <section
       id="features"
-      style={{
-        background: 'var(--th-bg-secondary)',
-        padding: 'clamp(60px, 8vw, 120px) 20px',
-      }}
+      className="bg-th-bg-secondary py-[clamp(60px,8vw,120px)] px-5"
     >
-      <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+      <div className="max-w-[980px] mx-auto">
         {/* Section header */}
-        <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-          <p
-            style={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#0071e3',
-              letterSpacing: '0.5px',
-              textTransform: 'uppercase',
-              marginBottom: '12px',
-            }}
-          >
+        <div className="text-center mb-16">
+          <p className="font-text text-[14px] font-semibold text-th-accent-blue tracking-[0.5px] uppercase mb-3">
             Everything you need
           </p>
-          <h2
-            className="text-section-heading"
-            style={{ color: 'var(--th-text-primary)', marginBottom: '16px' }}
-          >
+          <h2 className="text-section-heading text-th-text-primary mb-4">
             Built for creators who mean business.
           </h2>
-          <p
-            style={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: '1.06rem',
-              color: 'var(--th-text-secondary)',
-              maxWidth: '520px',
-              margin: '0 auto',
-              lineHeight: 1.47,
-              letterSpacing: '-0.374px',
-            }}
-          >
+          <p className="font-text text-[1.06rem] text-th-text-secondary max-w-[520px] mx-auto leading-[1.47] tracking-[-0.374px]">
             Six AI-powered tools, one dashboard. Stop context-switching and start creating content that actually grows your audience.
           </p>
         </div>
 
         {/* Feature grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '20px',
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
           {features.map((feature, i) => (
             <div
               key={feature.name}
-              style={{
-                background: 'var(--th-feature-card-bg)',
-                borderRadius: '12px',
-                padding: '32px 28px',
-                boxShadow: 'var(--th-feature-card-shadow)',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                cursor: 'default',
-                animationDelay: `${i * 0.08}s`,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)';
-                (e.currentTarget as HTMLDivElement).style.boxShadow = 'rgba(0,0,0,0.14) 0 8px 32px 0';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                (e.currentTarget as HTMLDivElement).style.boxShadow = 'rgba(0,0,0,0.08) 0 2px 20px 0';
-              }}
+              className="bg-th-feature-card-bg rounded-xl py-8 px-7 shadow-feature-card transition-all duration-200 ease-in-out cursor-default hover:-translate-y-1 hover:shadow-feature-card-hover"
+              style={{ animationDelay: `${i * 0.08}s` }}
             >
               {/* Icon */}
               <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  background: `${feature.accent}18`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '24px',
-                  marginBottom: '20px',
-                }}
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-5"
+                style={{ background: `${feature.accent}18` }}
               >
                 {feature.icon}
               </div>
 
               {/* Title */}
-              <h3
-                style={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: '1.19rem',
-                  fontWeight: 700,
-                  color: 'var(--th-text-primary)',
-                  letterSpacing: '0.231px',
-                  lineHeight: 1.19,
-                  marginBottom: '10px',
-                }}
-              >
+              <h3 className="font-display text-[1.19rem] font-bold text-th-text-primary tracking-[0.231px] leading-[1.19] mb-2.5">
                 {feature.name}
               </h3>
 
               {/* Description */}
-              <p
-                style={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: '15px',
-                  color: 'var(--th-text-secondary)',
-                  lineHeight: 1.47,
-                  letterSpacing: '-0.224px',
-                }}
-              >
+              <p className="font-text text-[15px] text-th-text-secondary leading-[1.47] tracking-[-0.224px]">
                 {feature.description}
               </p>
 
               {/* Learn more link */}
               <a
                 href="#waitlist"
-                style={{
-                  display: 'inline-block',
-                  marginTop: '20px',
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: '14px',
-                  color: 'var(--th-link)',
-                  textDecoration: 'none',
-                  letterSpacing: '-0.224px',
-                }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none')}
+                className="inline-block mt-5 font-text text-sm text-th-link no-underline tracking-[-0.224px] hover:underline"
               >
                 Learn more →
               </a>

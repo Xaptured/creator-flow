@@ -79,6 +79,29 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Custom Webkit Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #a1a1aa;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #71717a;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 body {
   background: var(--th-bg-primary, #000000);
   color: var(--th-text-primary, #ffffff);
