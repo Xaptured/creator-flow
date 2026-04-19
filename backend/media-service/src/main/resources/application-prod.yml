@@ -3,3 +3,9 @@ springdoc:
     enabled: false
   api-docs:
     enabled: false
+
+app:
+  cors:
+    allowed-origins:
+      - https://your-app.vercel.app
+      - https://www.creatorflow.app
