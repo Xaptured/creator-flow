@@ -81,3 +81,7 @@ app:
     allowed-origins:
       - http://localhost:3000
       - https://localhost:3000
+  rate-limit:
+    capacity: 100
+    refill-tokens: 100
+    refill-period-seconds: 60
