@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: db-migrations
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false   # clean DB — no pre-existing baseline needed
+    out-of-order: false          # always enforce strict version ordering
+
+  # No JPA/Hibernate — this service only runs Flyway, nothing else
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+server:
+  port: ${DB_MIGRATIONS_PORT}
+  servlet:
+    context-path: /creator-flow/db-migrations
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+profiles:
+  active: ${APP_ENV}
