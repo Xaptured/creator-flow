@@ -1,6 +1,6 @@
 spring:
   application:
-    name: media-service
+    name: analytics-service
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -44,13 +44,20 @@ spring:
           max-active: 8
           max-idle: 4
           min-idle: 1
+
   profiles:
     active: ${APP_ENV}
 
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+
+
 server:
-  port: ${MEDIA_SERVER_PORT}
+  port: ${ANALYTICS_SERVER_PORT}
   servlet:
-    context-path: /creator-flow/media
+    context-path: /creator-flow/analytics
 
 management:
   endpoints:
