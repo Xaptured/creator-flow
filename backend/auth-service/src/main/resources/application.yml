@@ -44,6 +44,7 @@ spring:
           max-active: 8
           max-idle: 4
           min-idle: 1
+          max-wait: 1000ms
 
   profiles:
     active: ${APP_ENV}
@@ -82,4 +83,4 @@ app:
   rate-limit:
     capacity: 100
     refill-tokens: 100
-    refill-period-seconds: 60
+ 
