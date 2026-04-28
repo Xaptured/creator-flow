@@ -83,4 +83,4 @@ app:
   rate-limit:
     capacity: 100
     refill-tokens: 100
- 
+    refill-period-seconds: 60
