@@ -12,7 +12,7 @@ jobs:
     name: Build auth-service
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -25,7 +25,7 @@ jobs:
     name: Build media-service
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -38,7 +38,7 @@ jobs:
     name: Build scheduler-service
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check if pom.xml exists
         id: check
         run: |
@@ -64,7 +64,7 @@ jobs:
     name: Build analytics-service
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check if pom.xml exists
         id: check
         run: |
@@ -91,7 +91,7 @@ jobs:
     name: Build frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -107,7 +107,7 @@ jobs:
     name: Build ai-service
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
