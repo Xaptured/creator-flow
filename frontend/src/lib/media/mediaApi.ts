@@ -1,8 +1,3 @@
-/**
- * Media API functions — called from Next.js API routes (server-side only).
- * All calls go to Spring media-service via axiosClient.
- */
-
 import axiosClient from '@/lib/http/axiosClient';
 import { buildUrl } from '@/lib/http/serviceUrls';
 import { ConfirmUploadRequest, UploadUrlRequest } from '@/lib/request/media';
