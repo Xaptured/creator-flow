@@ -14,12 +14,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account) {
         token.accessToken = account.access_token
         token.idToken = account.id_token
+          token.sub = account.providerAccountId
       }
       return token
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string
-      return session                                                                                    
+      session.userId = token.sub as string
+      return session
     },
   },
 })

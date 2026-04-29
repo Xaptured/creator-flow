@@ -83,7 +83,6 @@ export default function Hero() {
 
             {/* Main content */}
             <div className="flex-1 p-5 overflow-hidden">
-              {/* Header row */}
               <div className="flex justify-between items-center mb-5">
                 <h2 className="font-display text-[18px] font-semibold text-th-text-primary">
                   Content Calendar
@@ -145,6 +144,6 @@ export default function Hero() {
           className="absolute -bottom-[30px] left-1/2 -translate-x-1/2 w-[60%] h-[60px] bg-[rgba(0,113,227,0.15)] blur-[30px] rounded-full"
         />
       </div>
-</section>
+    </section>
   );
 }

@@ -1,6 +1,10 @@
 package com.creatorflow.media_service.filter;
 
 import com.creatorflow.media_service.configuration.RateLimitConfig.RateLimitProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.creatorflow.media_service.dto.response.ErrorResponse;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
@@ -24,11 +28,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
+    // Only rate-limit the upload-url endpoint — it's the expensive one (DB write + S3 presign)
+    private static final String RATE_LIMITED_PATH = "/upload-url";
+
     private final RateLimitProperties properties;
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;
 
     public RateLimitFilter(RateLimitProperties properties) {
         this.properties = properties;
+        this.objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        // Skip filter entirely for any path that doesn't end with /upload-url
+        return !request.getRequestURI().endsWith(RATE_LIMITED_PATH);
     }
 
     @Override
@@ -37,8 +54,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String clientIp = resolveClientIp(request);
-        Bucket bucket = buckets.computeIfAbsent(clientIp, this::newBucket);
+        // Key by ownerId from request body is not viable in a filter (stream already read).
+        // Use JWT subject extracted from Authorization header instead — same value as ownerId.
+        String userId = resolveUserId(request);
+        Bucket bucket = buckets.computeIfAbsent(userId, this::newBucket);
 
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
 
@@ -52,21 +71,53 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setHeader("X-RateLimit-Retry-After-Seconds", String.valueOf(waitSeconds));
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write(
-                    """
-                    {"status":429,"error":"Too Many Requests","message":"Rate limit exceeded. Retry after %d seconds."}
-                    """.formatted(waitSeconds).strip());
-            log.warn("Rate limit exceeded for IP={} — retry in {}s", clientIp, waitSeconds);
+
+            ErrorResponse error = ErrorResponse.of(
+                    "RATE_LIMIT_EXCEEDED",
+                    HttpStatus.TOO_MANY_REQUESTS.value(),
+                    "Upload rate limit exceeded. Retry after " + waitSeconds + " seconds."
+            );
+            response.getWriter().write(objectMapper.writeValueAsString(error));
+            log.warn("Rate limit exceeded for userId={} — retry in {}s", userId, waitSeconds);
         }
     }
 
-    private Bucket newBucket(String ip) {
+    private Bucket newBucket(String userId) {
         return Bucket.builder()
                 .addLimit(Bandwidth.builder()
                         .capacity(properties.capacity())
                         .refillGreedy(properties.refillTokens(), properties.refillPeriod())
                         .build())
                 .build();
+    }
+
+    /**
+     * Extracts the JWT subject (Keycloak UUID) from the Bearer token for per-user rate limiting.
+     * Falls back to remote IP if token is absent or unparseable — guards unauthenticated requests
+     * before Spring Security processes them.
+     */
+    private String resolveUserId(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            try {
+                String token = authHeader.substring(7);
+                // JWT is base64url: header.payload.signature — decode payload to get sub
+                String[] parts = token.split("\\.");
+                if (parts.length == 3) {
+                    String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+                    // Extract "sub" field from JSON payload
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(payload);
+                    com.fasterxml.jackson.databind.JsonNode sub = node.get("sub");
+                    if (sub != null && !sub.isNull()) {
+                        return sub.asText();
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Could not parse JWT subject for rate limiting, falling back to IP");
+            }
+        }
+        // Fallback: unauthenticated request — key by IP (Spring Security will reject it anyway)
+        return resolveClientIp(request);
     }
 
     private String resolveClientIp(HttpServletRequest request) {

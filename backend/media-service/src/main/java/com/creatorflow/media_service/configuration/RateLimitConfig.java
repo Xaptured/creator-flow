@@ -9,13 +9,13 @@ import java.time.Duration;
 @Configuration
 public class RateLimitConfig {
 
-    @Value("${app.rate-limit.capacity:100}")
+    @Value("${app.rate-limit.capacity}")
     private long capacity;
 
-    @Value("${app.rate-limit.refill-tokens:100}")
+    @Value("${app.rate-limit.refill-tokens}")
     private long refillTokens;
 
-    @Value("${app.rate-limit.refill-period-seconds:60}")
+    @Value("${app.rate-limit.refill-period-seconds}")
     private long refillPeriodSeconds;
 
     @Bean

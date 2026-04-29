@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useDark } from '../../context/ThemeContext';
-import { signInWithKeycloak } from '../../actions/auth';
+import { useDark } from '@/context/ThemeContext';
+import { signInWithKeycloak } from '@/actions/auth';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -20,8 +20,6 @@ export default function Navbar() {
     { label: 'How It Works', href: '#social-proof' },
     { label: 'Pricing', href: '#waitlist' },
   ];
-
-
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 bg-th-nav-bg backdrop-saturate-[1.8] backdrop-blur-[20px] transition-[border-color,background-color] duration-300 border-b ${scrolled ? 'border-th-border' : 'border-transparent'}`}>
@@ -60,7 +58,7 @@ export default function Navbar() {
             {dark ? '☀️' : '🌙'}
           </button>
 
-          {/* Sign In — desktop only, primary CTA pill */}
+          {/* Sign In — desktop only */}
           <form action={signInWithKeycloak} className="hidden md:block">
             <button
               type="submit"
@@ -70,7 +68,7 @@ export default function Navbar() {
             </button>
           </form>
 
-          {/* Hamburger — mobile ONLY */}
+          {/* Hamburger — mobile only */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Toggle menu"
@@ -110,8 +108,6 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-
-          {/* Mobile: Sign In — primary CTA */}
           <form action={signInWithKeycloak}>
             <button
               type="submit"
