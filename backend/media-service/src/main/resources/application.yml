@@ -83,3 +83,9 @@ app:
     capacity: 100
     refill-tokens: 100
     refill-period-seconds: 60
+  aws:
+    region: ${AWS_REGION}
+    bucket-name: ${AWS_S3_BUCKET}
+    upload-url-expiry-minutes: 15
+    read-url-expiry-hours: 1
+    max-file-size-bytes: 524288000

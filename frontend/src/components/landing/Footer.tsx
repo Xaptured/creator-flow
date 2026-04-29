@@ -17,18 +17,8 @@ function GitHubIcon() {
 }
 
 const footerLinks = [
-  {
-    label: 'Twitter/X',
-    href: 'https://twitter.com/creatorflow',
-    icon: <TwitterXIcon />,
-    external: true,
-  },
-  {
-    label: 'GitHub',
-    href: 'https://github.com/creatorflow',
-    icon: <GitHubIcon />,
-    external: true,
-  },
+  { label: 'Twitter/X', href: 'https://twitter.com/creatorflow', icon: <TwitterXIcon />, external: true },
+  { label: 'GitHub', href: 'https://github.com/creatorflow', icon: <GitHubIcon />, external: true },
 ];
 
 const legalLinks = [
@@ -42,22 +32,11 @@ export default function Footer() {
   return (
     <footer className="bg-th-bg-primary border-t border-th-border pt-12 pb-8 px-5">
       <div className="max-w-[980px] mx-auto">
-        {/* Top row */}
         <div className="flex items-center justify-between flex-wrap gap-6 mb-10 pb-8 border-b border-th-border-card">
-          {/* Logo */}
-          <a
-            href="#"
-            className="flex items-center gap-2 no-underline"
-          >
-            <span className="inline-flex items-center justify-center w-7 h-7 bg-th-accent-blue rounded-lg text-base">
-              ⚡
-            </span>
-            <span className="font-display font-semibold text-[17px] tracking-[-0.3px] text-th-text-primary">
-              CreatorFlow
-            </span>
+          <a href="#" className="flex items-center gap-2 no-underline">
+            <span className="inline-flex items-center justify-center w-7 h-7 bg-th-accent-blue rounded-lg text-base">⚡</span>
+            <span className="font-display font-semibold text-[17px] tracking-[-0.3px] text-th-text-primary">CreatorFlow</span>
           </a>
-
-          {/* Social links */}
           <div className="flex items-center gap-4">
             {footerLinks.map((link) => (
               <a
@@ -73,13 +52,10 @@ export default function Footer() {
             ))}
           </div>
         </div>
-
-        {/* Bottom row */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <p className="font-text text-xs text-th-section-label tracking-[-0.12px]">
             © {currentYear} CreatorFlow. All rights reserved.
           </p>
-
           <div className="flex gap-6">
             {legalLinks.map((link) => (
               <a

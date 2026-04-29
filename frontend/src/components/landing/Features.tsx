@@ -52,7 +52,6 @@ export default function Features() {
       className="bg-th-bg-secondary py-[clamp(60px,8vw,120px)] px-5"
     >
       <div className="max-w-[980px] mx-auto">
-        {/* Section header */}
         <div className="text-center mb-16">
           <p className="font-text text-[14px] font-semibold text-th-accent-blue tracking-[0.5px] uppercase mb-3">
             Everything you need
@@ -65,7 +64,6 @@ export default function Features() {
           </p>
         </div>
 
-        {/* Feature grid */}
         <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
           {features.map((feature, i) => (
             <div
@@ -73,25 +71,18 @@ export default function Features() {
               className="bg-th-feature-card-bg rounded-xl py-8 px-7 shadow-feature-card transition-all duration-200 ease-in-out cursor-default hover:-translate-y-1 hover:shadow-feature-card-hover"
               style={{ animationDelay: `${i * 0.08}s` }}
             >
-              {/* Icon */}
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-5"
                 style={{ background: `${feature.accent}18` }}
               >
                 {feature.icon}
               </div>
-
-              {/* Title */}
               <h3 className="font-display text-[1.19rem] font-bold text-th-text-primary tracking-[0.231px] leading-[1.19] mb-2.5">
                 {feature.name}
               </h3>
-
-              {/* Description */}
               <p className="font-text text-[15px] text-th-text-secondary leading-[1.47] tracking-[-0.224px]">
                 {feature.description}
               </p>
-
-              {/* Learn more link */}
               <a
                 href="#waitlist"
                 className="inline-block mt-5 font-text text-sm text-th-link no-underline tracking-[-0.224px] hover:underline"
