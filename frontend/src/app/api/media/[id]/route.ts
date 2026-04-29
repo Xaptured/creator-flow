@@ -3,6 +3,7 @@ import { auth } from '@/../auth';
 import { handleRouteError } from '@/lib/http/routeErrorHandler';
 import { getMediaFile } from '@/lib/media/mediaApi';
 import { makeApiError } from '@/lib/response/error';
+import logger from '@/lib/logger';
 
 export async function GET(
   req: NextRequest,
@@ -14,6 +15,7 @@ export async function GET(
       return NextResponse.json(makeApiError('UNAUTHORIZED', 401, 'Not authenticated'), { status: 401 });
     }
 
+    logger.info({ userId: session.userId, mediaId: params.id }, '[media] Fetching media file');
     const data = await getMediaFile(params.id, session.userId, session.accessToken);
     return NextResponse.json(data);
   } catch (err) {

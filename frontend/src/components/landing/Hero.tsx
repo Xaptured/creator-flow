@@ -10,7 +10,7 @@ export default function Hero() {
         style={{ background: 'radial-gradient(circle, rgba(0,113,227,0.12) 0%, transparent 70%)' }}
       />
 
-      <div className="max-w-[740px] mx-auto animate-fade-in-up relative z-10">
+      <div className="max-w-[900px] mx-auto animate-fade-in-up relative z-10">
         {/* Eyebrow tag */}
         <div className="animate-fade-in-up inline-flex items-center gap-[6px] py-[5px] px-[14px] rounded-[980px] border border-[rgba(41,151,255,0.4)] bg-[rgba(41,151,255,0.08)] mb-7">
           <span className="text-xs text-th-eyebrow tracking-[-0.12px] font-text">
@@ -25,7 +25,7 @@ export default function Hero() {
         </h1>
 
         {/* Sub-headline */}
-        <p className="animate-fade-in-up delay-200 font-display text-[clamp(1.1rem,2vw,1.31rem)] font-normal leading-[1.47] text-th-text-secondary max-w-[560px] mx-auto mb-9">
+        <p className="animate-fade-in-up delay-200 font-display text-[clamp(1.1rem,2vw,1.31rem)] font-normal leading-[1.47] text-th-text-secondary max-w-[680px] mx-auto mb-9">
           Creators waste hours juggling tools to schedule, post, and analyze across YouTube, Instagram, and Twitter/X.
           CreatorFlow does it all in one place — powered by AI.
         </p>

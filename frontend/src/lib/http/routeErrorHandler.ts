@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { makeApiError } from '@/lib/response/error';
+import logger from '@/lib/logger';
 
 /**
  * Converts any caught error from a Next.js API route into a consistent
@@ -21,13 +22,14 @@ export function handleRouteError(err: unknown): NextResponse {
       );
     }
     const status = err.response?.status ?? 503;
+    logger.warn({ status, message: err.message }, '[API Route] Backend service error');
     return NextResponse.json(
       makeApiError('SERVICE_UNAVAILABLE', status, err.message ?? 'Backend service unavailable'),
       { status }
     );
   }
 
-  console.error('[API Route] Unhandled error:', err);
+  logger.error({ err }, '[API Route] Unhandled error');
   return NextResponse.json(
     makeApiError('INTERNAL_ERROR', 500, 'An unexpected error occurred'),
     { status: 500 }

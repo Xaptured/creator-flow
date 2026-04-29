@@ -4,6 +4,7 @@ import { handleRouteError } from '@/lib/http/routeErrorHandler';
 import { requestUploadUrl } from '@/lib/media/mediaApi';
 import { UploadUrlRequest } from '@/lib/request/media';
 import { makeApiError } from '@/lib/response/error';
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body: Omit<UploadUrlRequest, 'ownerId'> = await req.json();
+    logger.info({ userId: session.userId, fileName: body.fileName }, '[upload-url] Requesting presigned URL');
     const data = await requestUploadUrl({ ...body, ownerId: session.userId }, session.accessToken);
     return NextResponse.json(data, { status: 201 });
   } catch (err) {
