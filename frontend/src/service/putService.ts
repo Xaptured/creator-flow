@@ -1,22 +1,5 @@
 import { makeApiError } from '@/lib/response/error';
 
-/**
- * PUT calls.
- *
- * Note: uploadToS3 uses raw XHR, not axios. This is intentional —
- * XHR is the only browser API that exposes upload progress via onprogress.
- * The target is an external S3 presigned URL, not a Next.js API route.
- * Future internal PUT routes should use browserAxiosClient and live here too.
- */
-
-/**
- * Uploads a file directly to S3 via a presigned PUT URL.
- * Calls onProgress with 0–100 as bytes are transferred.
- *
- * @param presignedUrl - S3 presigned PUT URL from /api/media/upload-url
- * @param file         - File selected by the user
- * @param onProgress   - Called with upload percentage (0–100)
- */
 export function uploadToS3(
   presignedUrl: string,
   file: File,

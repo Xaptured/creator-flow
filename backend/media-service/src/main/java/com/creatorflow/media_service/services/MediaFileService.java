@@ -47,26 +47,14 @@ public class MediaFileService {
         this.awsProperties = awsProperties;
     }
 
-    /**
-     * Generates a presigned PUT URL for a media upload.
-     *
-     * Validates MIME type against allowlist and enforces max file size before issuing URL.
-     *
-     * Deduplication logic for re-uploads of the same file:
-     * - PENDING row exists, within expiry window  → reuse row + S3 key, return fresh presigned URL
-     * - PENDING row exists, past expiry window    → delete stale row, insert new row with new S3 key
-     * - No PENDING row                            → insert new row normally
-     */
     @Transactional
     public UploadUrlResponse createUploadUrl(UploadUrlRequest request) {
-        // Validate MIME type against allowlist
         if (!ALLOWED_MIME_TYPES.contains(request.getMimeType())) {
             throw new IllegalArgumentException(
                     "Unsupported file type: " + request.getMimeType() +
                     ". Allowed types: " + String.join(", ", ALLOWED_MIME_TYPES));
         }
 
-        // Validate file size
         if (request.getSizeBytes() == null || request.getSizeBytes() <= 0) {
             throw new IllegalArgumentException("Invalid file size");
         }
@@ -75,7 +63,6 @@ public class MediaFileService {
             throw new IllegalArgumentException("File exceeds maximum allowed size of " + maxMb + " MB");
         }
 
-        // Block re-upload if file already successfully uploaded — regardless of age
         if (mediaFileRepository.existsByOwnerIdAndOriginalNameAndStatus(
                 request.getOwnerId(), request.getFileName(), MediaStatus.UPLOADED)) {
             throw new MediaAlreadyUploadedException(request.getFileName());
@@ -93,12 +80,10 @@ public class MediaFileService {
                     .isBefore(LocalDateTime.now().minusMinutes(awsProperties.getUploadUrlExpiryMinutes()));
 
             if (isStale) {
-                // Presigned URL expired — delete stale row and create a fresh one
                 mediaFileRepository.delete(existing);
                 mediaFile = buildNewMediaFile(request);
                 mediaFileRepository.save(mediaFile);
             } else {
-                // Within expiry window — reuse existing row and S3 key
                 mediaFile = existing;
             }
         } else {
@@ -116,16 +101,8 @@ public class MediaFileService {
         );
     }
 
-    /**
-     * Marks record UPLOADED after browser PUT to S3 completes.
-     * Ownership verified against ownerId in request body.
-     * HeadObject check confirms the file actually exists in S3 before marking UPLOADED —
-     * prevents confirm being called without a real upload having occurred.
-     */
     @Transactional
     public MediaFileResponse confirmUpload(ConfirmUploadRequest request) {
-        // findByIdAndOwnerId returns empty if mediaId exists but belongs to different owner —
-        // surface as NOT_FOUND to avoid leaking existence of other users' media.
         MediaFile mediaFile = mediaFileRepository
                 .findByIdAndOwnerId(request.getMediaId(), request.getOwnerId())
                 .orElseThrow(() -> new MediaNotFoundException(request.getMediaId()));
@@ -134,7 +111,6 @@ public class MediaFileService {
             throw new MediaAlreadyConfirmedException(request.getMediaId());
         }
 
-        // Verify file actually exists in S3 before marking as UPLOADED
         try {
             s3Client.headObject(HeadObjectRequest.builder()
                     .bucket(awsProperties.getBucketName())
@@ -150,10 +126,6 @@ public class MediaFileService {
         return toResponse(mediaFile, null);
     }
 
-    /**
-     * Returns metadata + fresh presigned GET URL (1-hour expiry).
-     * No public S3 URLs exposed.
-     */
     @Transactional(readOnly = true)
     public MediaFileResponse getMediaFile(UUID mediaId, UUID ownerId) {
         MediaFile mediaFile = mediaFileRepository

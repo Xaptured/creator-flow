@@ -28,7 +28,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
-    // Only rate-limit the upload-url endpoint — it's the expensive one (DB write + S3 presign)
     private static final String RATE_LIMITED_PATH = "/upload-url";
 
     private final RateLimitProperties properties;
@@ -44,7 +43,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        // Skip filter entirely for any path that doesn't end with /upload-url
         return !request.getRequestURI().endsWith(RATE_LIMITED_PATH);
     }
 
@@ -54,8 +52,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Key by ownerId from request body is not viable in a filter (stream already read).
-        // Use JWT subject extracted from Authorization header instead — same value as ownerId.
         String userId = resolveUserId(request);
         Bucket bucket = buckets.computeIfAbsent(userId, this::newBucket);
 
@@ -91,21 +87,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 .build();
     }
 
-    /**
-     * Extracts the JWT subject (Keycloak UUID) from the Bearer token for per-user rate limiting.
-     * Falls back to remote IP if token is absent or unparseable — guards unauthenticated requests
-     * before Spring Security processes them.
-     */
     private String resolveUserId(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             try {
                 String token = authHeader.substring(7);
-                // JWT is base64url: header.payload.signature — decode payload to get sub
                 String[] parts = token.split("\\.");
                 if (parts.length == 3) {
                     String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
-                    // Extract "sub" field from JSON payload
                     com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(payload);
                     com.fasterxml.jackson.databind.JsonNode sub = node.get("sub");
                     if (sub != null && !sub.isNull()) {
@@ -116,7 +105,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 log.debug("Could not parse JWT subject for rate limiting, falling back to IP");
             }
         }
-        // Fallback: unauthenticated request — key by IP (Spring Security will reject it anyway)
         return resolveClientIp(request);
     }
 
