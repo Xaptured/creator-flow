@@ -91,3 +91,10 @@ app:
     upload-url-expiry-minutes: 15
     read-url-expiry-hours: 1
     max-file-size-bytes: 524288000
+  google:
+    oauth:
+      client-id: ${GOOGLE_YOUTUBE_CLIENT_ID}
+      client-secret: ${GOOGLE_YOUTUBE_CLIENT_SECRET}
+      redirect-uri: ${GOOGLE_YOUTUBE_REDIRECT_URI}
+      frontend-base-url: ${FRONTEND_BASE_URL}
+      scopes: ${GOOGLE_YOUTUBE_SCOPES}

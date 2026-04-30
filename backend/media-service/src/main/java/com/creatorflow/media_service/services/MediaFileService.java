@@ -33,16 +33,16 @@ public class MediaFileService {
     );
 
     private final MediaFileRepository mediaFileRepository;
-    private final S3PresignService s3PresignService;
+    private final S3Service s3Service;
     private final S3Client s3Client;
     private final AwsProperties awsProperties;
 
     public MediaFileService(MediaFileRepository mediaFileRepository,
-                            S3PresignService s3PresignService,
+                            S3Service s3Service,
                             S3Client s3Client,
                             AwsProperties awsProperties) {
         this.mediaFileRepository = mediaFileRepository;
-        this.s3PresignService = s3PresignService;
+        this.s3Service = s3Service;
         this.s3Client = s3Client;
         this.awsProperties = awsProperties;
     }
@@ -91,7 +91,7 @@ public class MediaFileService {
             mediaFileRepository.save(mediaFile);
         }
 
-        PresignedPutObjectRequest presigned = s3PresignService.generatePutUrl(
+        PresignedPutObjectRequest presigned = s3Service.generatePutUrl(
                 mediaFile.getS3Key(), request.getMimeType());
 
         return new UploadUrlResponse(
@@ -132,7 +132,7 @@ public class MediaFileService {
                 .findByIdAndOwnerId(mediaId, ownerId)
                 .orElseThrow(() -> new MediaNotFoundException(mediaId));
 
-        String readUrl = s3PresignService.generateGetUrl(mediaFile.getS3Key()).url().toString();
+        String readUrl = s3Service.generateGetUrl(mediaFile.getS3Key()).url().toString();
         return toResponse(mediaFile, readUrl);
     }
 

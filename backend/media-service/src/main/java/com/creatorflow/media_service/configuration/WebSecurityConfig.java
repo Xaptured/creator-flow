@@ -33,6 +33,10 @@ public class WebSecurityConfig {
             "/v3/api-docs/**"
     };
 
+    private static final String[] PUBLIC_URLS = {
+            "/api/platforms/youtube/callback"
+    };
+
     private final CorsConfigurationSource corsConfigurationSource;
     private final RateLimitFilter rateLimitFilter;
 
@@ -47,10 +51,11 @@ public class WebSecurityConfig {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));
         http.csrf(AbstractHttpConfigurer::disable);
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health").permitAll().requestMatchers(
-                        SWAGGER_UI_URLS
-                ).permitAll()
-                                                                                .anyRequest().authenticated());
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers(SWAGGER_UI_URLS).permitAll()
+                .requestMatchers(PUBLIC_URLS).permitAll()
+                .anyRequest().authenticated());
         http.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
         http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
