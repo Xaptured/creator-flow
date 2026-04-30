@@ -76,3 +76,12 @@ app:
     capacity: 100
     refill-tokens: 100
     refill-period-seconds: 60
+  aws:
+    endpoint-override: ${AWS_ENDPOINT_OVERRIDE:http://localhost:4566}
+    region: ${AWS_REGION:us-east-1}
+    queues:
+      content-scheduler: ${AWS_SQS_QUEUE_CONTENT_SCHEDULER:content-scheduler-queue}
+      post-dispatcher:   ${AWS_SQS_QUEUE_POST_DISPATCHER:post-dispatcher-queue}
+      analytics:         ${AWS_SQS_QUEUE_ANALYTICS:analytics-queue}
+    topics:
+      creatorflow-events: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS:arn:aws:sns:us-east-1:000000000000:creatorflow-events}

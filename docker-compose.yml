@@ -1,24 +1,26 @@
 # =============================================================================
-# CreatorFlow — Docker Compose
-# Phase 1 · Week 3 · Day 2
+# CreatorFlow - Docker Compose
+# Phase 1 - Week 3 - Day 2  (updated Phase 3 - Week 11)
 #
 # Credentials are loaded from a .env file (gitignored).
 # Copy .env.example -> .env and fill in your values before running.
 #
 # Services included:
-#   ✅ PostgreSQL 16   — primary relational database
-#   ✅ Redis 7         — cache, rate limits, token storage
-#   ✅ Keycloak 24     — identity provider (OAuth 2.0 + OIDC)
+#   PostgreSQL 16   - primary relational database
+#   Redis 7         - cache, rate limits, token storage
+#   Keycloak 24     - identity provider (OAuth 2.0 + OIDC)
+#   LocalStack      - local AWS SNS + SQS (port 4566)
 #
 # Services to be added in later phases:
-#   🔜 LocalStack      — Week 11 (Phase 3: SNS/SQS)
-#   🔜 Grafana + Loki  — Week 24 (Phase 5: Observability)
+#   Grafana + Loki  - Week 24 (Phase 5: Observability)
 #
 # Quick start:
 #   docker compose up -d
-#   Keycloak admin console → http://localhost:8080  (admin / admin)
-#   PostgreSQL             → localhost:5432
-#   Redis                  → localhost:6379
+#   Keycloak admin console -> http://localhost:8080  (admin / admin)
+#   PostgreSQL             -> localhost:5432
+#   Redis                  -> localhost:6379
+#   LocalStack             -> http://localhost:4566
+#   Verify SNS topics:     aws --endpoint-url=http://localhost:4566 --region us-east-1 sns list-topics
 # =============================================================================
 
 version: "3.9"
@@ -32,6 +34,8 @@ volumes:
   redis_data:
     driver: local
   keycloak_data:
+    driver: local
+  localstack_data:
     driver: local
 
 # ---------------------------------------------------------------------------
@@ -58,10 +62,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"                           # host:container — accessible from IntelliJ / DBeaver
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/db/init:/docker-entrypoint-initdb.d  # optional: place seed SQL files here
+      - ./scripts/db/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -85,7 +89,7 @@ services:
       --maxmemory-policy allkeys-lru
       --appendonly yes
     ports:
-      - "6379:6379"                           # host:container — accessible from redis-cli locally
+      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -99,53 +103,86 @@ services:
 
   # --------------------------------------------------------------------------
   # Keycloak 24
-  # Phase 1 · Week 3 · Day 2
+  # Phase 1 - Week 3 - Day 2
   #
   # Admin console: http://localhost:8080
-  # Credentials:   admin / admin  (dev only — never use in production)
+  # Credentials:   admin / admin  (dev only - never use in production)
   #
   # Next steps after first boot:
   #   1. Log in to admin console at http://localhost:8080
   #   2. Create realm: creatorflow
   #   3. Create client: creatorflow-app  (OpenID Connect, confidential)
   #   4. Create roles: CREATOR, ADMIN, VIEWER
-  #   5. Create 3 test users — assign one role each
+  #   5. Create 3 test users - assign one role each
   #   6. Test token issuance via Postman (password grant)
   # --------------------------------------------------------------------------
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: creatorflow_keycloak
     restart: unless-stopped
-    command: start-dev                        # dev mode: no TLS required, fast startup
+    command: start-dev
     environment:
-      # Admin credentials (dev only)
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-
-      # Point Keycloak at the Postgres DB instead of the default H2 in-memory DB.
-      # This means realm/user config survives container restarts.
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-
-      # Hostname config for dev — no strict hostname checking
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
-
     ports:
-      - "8080:8080"                           # Admin console + token endpoints
+      - "8080:8080"
     volumes:
-      - keycloak_data:/opt/keycloak/data      # Persist realm data across restarts
+      - keycloak_data:/opt/keycloak/data
     depends_on:
       postgres:
-        condition: service_healthy            # Wait for Postgres to be ready before starting
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
       interval: 15s
       timeout: 10s
       retries: 10
-      start_period: 60s                       # Keycloak takes ~30-45s to start in dev mode
+      start_period: 60s
+    networks:
+      - creatorflow_net
+
+  # --------------------------------------------------------------------------
+  # LocalStack
+  # Phase 3 - Week 11
+  #
+  # Emulates AWS SNS + SQS locally so developers can work without AWS costs.
+  # The init script at scripts/localstack/init.sh runs automatically once
+  # LocalStack is ready and creates:
+  #   - SNS topic:  creatorflow-events
+  #   - SQS queues: content-scheduler-queue, post-dispatcher-queue, analytics-queue
+  #   - DLQ:        content-dispatcher-dlq  (redrive on post-dispatcher-queue)
+  #   - SNS->SQS subscriptions for all 3 main queues
+  #
+  # Verify setup:
+  #   aws --endpoint-url=http://localhost:4566 --region us-east-1 sns list-topics
+  #   aws --endpoint-url=http://localhost:4566 --region us-east-1 sqs list-queues
+  # --------------------------------------------------------------------------
+  localstack:
+    image: localstack/localstack:3.4
+    container_name: creatorflow_localstack
+    restart: unless-stopped
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: sns,sqs
+      DEFAULT_REGION: us-east-1
+      PERSISTENCE: 1
+      DEBUG: 0
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./scripts/localstack:/etc/localstack/init/ready.d
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sns list-topics"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
       - creatorflow_net
