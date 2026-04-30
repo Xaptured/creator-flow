@@ -58,6 +58,34 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("S3_FILE_NOT_FOUND", HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage()));
     }
 
+    @ExceptionHandler(PlatformNotConnectedException.class)
+    public ResponseEntity<ErrorResponse> handlePlatformNotConnected(PlatformNotConnectedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("PLATFORM_NOT_CONNECTED", HttpStatus.NOT_FOUND.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(OAuthTokenExchangeException.class)
+    public ResponseEntity<ErrorResponse> handleOAuthTokenExchange(OAuthTokenExchangeException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ErrorResponse.of("OAUTH_TOKEN_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(YouTubeApiException.class)
+    public ResponseEntity<ErrorResponse> handleYouTubeApi(YouTubeApiException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ErrorResponse.of("YOUTUBE_API_ERROR", HttpStatus.BAD_GATEWAY.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(S3FetchException.class)
+    public ResponseEntity<ErrorResponse> handleS3Fetch(S3FetchException ex) {
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of("S3_FETCH_FAILED", HttpStatus.SERVICE_UNAVAILABLE.value(), ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         return ResponseEntity

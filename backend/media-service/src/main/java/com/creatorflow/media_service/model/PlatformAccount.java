@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcType;
+import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -27,6 +29,7 @@ public class PlatformAccount implements Serializable {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
     private PlatformType platform;
 
     @Column(name = "access_token", nullable = false)

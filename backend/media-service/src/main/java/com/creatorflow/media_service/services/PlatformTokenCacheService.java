@@ -1,5 +1,6 @@
 package com.creatorflow.media_service.services;
 
+import com.creatorflow.media_service.exception.PlatformNotConnectedException;
 import com.creatorflow.media_service.model.PlatformAccount;
 import com.creatorflow.media_service.model.PlatformType;
 import com.creatorflow.media_service.repository.PlatformAccountRepository;
@@ -37,28 +38,8 @@ public class PlatformTokenCacheService {
         PlatformType platformType = PlatformType.valueOf(platform.toUpperCase());
         return platformAccountRepository
                 .findByOwnerIdAndPlatform(ownerId, platformType)
-                .orElseThrow(() -> new RuntimeException(
-                        "Platform not connected: " + platform + " for user " + ownerId));
-    }
-
-    /**
-     * Call this after a successful OAuth token refresh.
-     * Evicts the stale cached token for this owner+platform pair so the next
-     * call to getPlatformAccount() fetches fresh data from DB.
-     *
-     * Cache key evicted: platformTokens::<ownerId>::<platform>
-     */
-    @CacheEvict(value = "platformTokens", key = "#ownerId + '::' + #platform")
-    public PlatformAccount refreshAndCacheToken(UUID ownerId, String platform,
-                                                String newAccessToken) {
-        PlatformType platformType = PlatformType.valueOf(platform.toUpperCase());
-        PlatformAccount account = platformAccountRepository
-                .findByOwnerIdAndPlatform(ownerId, platformType)
-                .orElseThrow(() -> new RuntimeException(
-                        "Platform not connected: " + platform + " for user " + ownerId));
-        account.setAccessToken(newAccessToken);
-        return platformAccountRepository.save(account);
-        // @Cacheable on getPlatformAccount will repopulate cache on next call
+                .orElseThrow(() -> new PlatformNotConnectedException(
+                        platform + " not connected for user: " + ownerId));
     }
 
     /**
