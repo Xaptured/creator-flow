@@ -78,7 +78,7 @@ app:
     refill-period-seconds: 60
   aws:
     endpoint-override: ${AWS_ENDPOINT_OVERRIDE}
-    region: ${AWS_REGION}
+    region: us-east-1
     queues:
       content-scheduler: ${AWS_SQS_QUEUE_CONTENT_SCHEDULER}
       post-dispatcher:   ${AWS_SQS_QUEUE_POST_DISPATCHER}
