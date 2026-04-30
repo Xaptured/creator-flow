@@ -49,3 +49,4 @@ logs/
 .agents/
 .agents/skills/
 .claude/
+skills-lock.json
