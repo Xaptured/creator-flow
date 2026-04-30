@@ -77,11 +77,11 @@ app:
     refill-tokens: 100
     refill-period-seconds: 60
   aws:
-    endpoint-override: ${AWS_ENDPOINT_OVERRIDE:http://localhost:4566}
-    region: ${AWS_REGION:us-east-1}
+    endpoint-override: ${AWS_ENDPOINT_OVERRIDE}
+    region: ${AWS_REGION}
     queues:
-      content-scheduler: ${AWS_SQS_QUEUE_CONTENT_SCHEDULER:content-scheduler-queue}
-      post-dispatcher:   ${AWS_SQS_QUEUE_POST_DISPATCHER:post-dispatcher-queue}
-      analytics:         ${AWS_SQS_QUEUE_ANALYTICS:analytics-queue}
+      content-scheduler: ${AWS_SQS_QUEUE_CONTENT_SCHEDULER}
+      post-dispatcher:   ${AWS_SQS_QUEUE_POST_DISPATCHER}
+      analytics:         ${AWS_SQS_QUEUE_ANALYTICS}
     topics:
-      creatorflow-events: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS:arn:aws:sns:us-east-1:000000000000:creatorflow-events}
+      creatorflow-events: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS}
