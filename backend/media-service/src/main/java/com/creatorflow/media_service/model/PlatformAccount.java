@@ -41,6 +41,9 @@ public class PlatformAccount implements Serializable {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    @Column(name = "platform_user_id", length = 255)
+    private String platformUserId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

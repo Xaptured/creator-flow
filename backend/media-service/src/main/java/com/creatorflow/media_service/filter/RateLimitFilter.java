@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -31,11 +34,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String RATE_LIMITED_PATH = "/upload-url";
 
     private final RateLimitProperties properties;
+    private final JwtDecoder jwtDecoder;
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
-    public RateLimitFilter(RateLimitProperties properties) {
+    public RateLimitFilter(RateLimitProperties properties, JwtDecoder jwtDecoder) {
         this.properties = properties;
+        this.jwtDecoder = jwtDecoder;
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -92,17 +97,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             try {
                 String token = authHeader.substring(7);
-                String[] parts = token.split("\\.");
-                if (parts.length == 3) {
-                    String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
-                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(payload);
-                    com.fasterxml.jackson.databind.JsonNode sub = node.get("sub");
-                    if (sub != null && !sub.isNull()) {
-                        return sub.asText();
-                    }
+                Jwt jwt = jwtDecoder.decode(token);
+                String sub = jwt.getSubject();
+                if (sub != null && !sub.isBlank()) {
+                    return sub;
                 }
-            } catch (Exception e) {
-                log.debug("Could not parse JWT subject for rate limiting, falling back to IP");
+            } catch (JwtException e) {
+                log.debug("JWT decode failed for rate limiting, falling back to IP: {}", e.getMessage());
             }
         }
         return resolveClientIp(request);

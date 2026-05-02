@@ -51,8 +51,8 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("BAD_REQUEST", HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+    @ExceptionHandler(S3FileNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleS3FileNotFound(S3FileNotFoundException ex) {
         return ResponseEntity
                 .status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ErrorResponse.of("S3_FILE_NOT_FOUND", HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage()));
@@ -77,6 +77,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_GATEWAY)
                 .body(ErrorResponse.of("YOUTUBE_API_ERROR", HttpStatus.BAD_GATEWAY.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(InstagramApiException.class)
+    public ResponseEntity<ErrorResponse> handleInstagramApi(InstagramApiException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ErrorResponse.of("INSTAGRAM_API_ERROR", HttpStatus.BAD_GATEWAY.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(TwitterApiException.class)
+    public ResponseEntity<ErrorResponse> handleTwitterApi(TwitterApiException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(ErrorResponse.of("TWITTER_API_ERROR", HttpStatus.BAD_GATEWAY.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(S3FetchException.class)

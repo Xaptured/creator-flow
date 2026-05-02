@@ -1,4 +1,4 @@
-package com.creatorflow.media_service.services;
+package com.creatorflow.media_service.services.youtube;
 
 import com.creatorflow.media_service.client.YouTubeClient;
 import com.creatorflow.media_service.exception.OAuthTokenExchangeException;
@@ -8,6 +8,7 @@ import com.creatorflow.media_service.model.PlatformType;
 import com.creatorflow.media_service.model.YouTubeChannel;
 import com.creatorflow.media_service.repository.PlatformAccountRepository;
 import com.creatorflow.media_service.repository.YouTubeChannelRepository;
+import com.creatorflow.media_service.services.PlatformTokenCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,9 @@ public class YouTubeOAuthService {
      * state = ownerId — ties callback back to user without a server session.
      */
     public String buildAuthorizationUrl(UUID ownerId) {
-        return youTubeClient.buildAuthorizationUrl(ownerId.toString());
+        String authUrl = youTubeClient.buildAuthorizationUrl(ownerId.toString());
+        log.info("YouTube OAuth authorization URL — open in browser to connect: {}", authUrl);
+        return authUrl;
     }
 
     /**
@@ -79,6 +82,7 @@ public class YouTubeOAuthService {
         account.setAccessToken(tokens.accessToken());
         account.setRefreshToken(tokens.refreshToken());
         account.setExpiresAt(LocalDateTime.now().plusSeconds(tokens.expiresIn() - TOKEN_EXPIRY_BUFFER_SECONDS));
+        account.setPlatformUserId(channelInfo.channelName());
 
         PlatformAccount saved = platformAccountRepository.save(account);
 
@@ -95,7 +99,11 @@ public class YouTubeOAuthService {
 
         youTubeChannelRepository.save(channel);
 
-        platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+        try {
+            platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+        } catch (Exception e) {
+            log.warn("Failed to evict YouTube token cache after connect: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+        }
 
         log.info("YouTube connected: ownerId={} channel={}", ownerId, channelInfo.channelName());
         return saved;
@@ -137,6 +145,10 @@ public class YouTubeOAuthService {
         account.setExpiresAt(LocalDateTime.now().plusSeconds(tokens.expiresIn() - TOKEN_EXPIRY_BUFFER_SECONDS));
         platformAccountRepository.save(account);
 
-        platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+        try {
+            platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+        } catch (Exception e) {
+            log.warn("Failed to evict YouTube token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+        }
     }
 }
