@@ -4,6 +4,8 @@ import com.creatorflow.media_service.configuration.GoogleOAuthProperties;
 import com.creatorflow.media_service.exception.OAuthTokenExchangeException;
 import com.creatorflow.media_service.exception.YouTubeApiException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -54,10 +56,12 @@ public class YouTubeClient {
 
     private final GoogleOAuthProperties googleOAuthProperties;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     public YouTubeClient(GoogleOAuthProperties googleOAuthProperties) {
         this.googleOAuthProperties = googleOAuthProperties;
         this.restTemplate = new RestTemplate();
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -235,22 +239,22 @@ public class YouTubeClient {
     }
 
     private String buildVideoMetadataJson(String title, String description, String privacyStatus) {
-        return String.format("""
-                {
-                  "snippet": {
-                    "title": "%s",
-                    "description": "%s"
-                  },
-                  "status": {
-                    "privacyStatus": "%s"
-                  }
-                }
-                """, escapeJson(title), escapeJson(description != null ? description : ""), privacyStatus);
-    }
+        try {
+            ObjectNode snippet = objectMapper.createObjectNode()
+                    .put("title", title != null ? title : "")
+                    .put("description", description != null ? description : "");
 
-    private String escapeJson(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+            ObjectNode status = objectMapper.createObjectNode()
+                    .put("privacyStatus", privacyStatus);
+
+            ObjectNode root = objectMapper.createObjectNode();
+            root.set("snippet", snippet);
+            root.set("status", status);
+
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            throw new YouTubeApiException("Failed to build video metadata JSON", e);
+        }
     }
 
     public record TokenResponse(String accessToken, String refreshToken, long expiresIn) {}

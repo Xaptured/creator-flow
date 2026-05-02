@@ -2,6 +2,8 @@ package com.creatorflow.media_service.services;
 
 import com.creatorflow.media_service.configuration.AwsProperties;
 import com.creatorflow.media_service.exception.S3FetchException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -18,6 +20,8 @@ import java.time.Duration;
 
 @Service
 public class S3Service {
+
+    private static final Logger log = LoggerFactory.getLogger(S3Service.class);
 
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
@@ -41,14 +45,26 @@ public class S3Service {
                 .putObjectRequest(putObjectRequest));
     }
 
+    /**
+     * Generate a presigned GET URL using the configured default expiry (app.aws.read-url-expiry-hours).
+     */
     public PresignedGetObjectRequest generateGetUrl(String s3Key) {
+        return generateGetUrl(s3Key, Duration.ofHours(awsProperties.getReadUrlExpiryHours()));
+    }
+
+    /**
+     * Generate a presigned GET URL with a custom expiry duration.
+     * Use this when the default 1-hour expiry is insufficient — e.g. Instagram publish,
+     * where Meta's CDN fetches the URL asynchronously and may do so well after the initial call.
+     */
+    public PresignedGetObjectRequest generateGetUrl(String s3Key, Duration expiry) {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(awsProperties.getBucketName())
                 .key(s3Key)
                 .build();
 
         return s3Presigner.presignGetObject(r -> r
-                .signatureDuration(Duration.ofHours(awsProperties.getReadUrlExpiryHours()))
+                .signatureDuration(expiry)
                 .getObjectRequest(getObjectRequest));
     }
 
@@ -61,9 +77,11 @@ public class S3Service {
         try (ResponseInputStream<GetObjectResponse> s3Object = s3Client.getObject(getObjectRequest)) {
             return s3Object.readAllBytes();
         } catch (NoSuchKeyException e) {
-            throw new S3FetchException("S3 object not found: " + s3Key, e);
+            log.error("S3 object not found: key={}", s3Key);
+            throw new S3FetchException(s3Key, "S3 object not found for key prefix: " + s3Key.substring(0, Math.min(s3Key.length(), 30)), e);
         } catch (IOException e) {
-            throw new S3FetchException("Failed to read S3 object: " + s3Key, e);
+            log.error("Failed to read S3 object: key={}", s3Key, e);
+            throw new S3FetchException(s3Key, "Failed to read S3 object — storage error", e);
         }
     }
 }

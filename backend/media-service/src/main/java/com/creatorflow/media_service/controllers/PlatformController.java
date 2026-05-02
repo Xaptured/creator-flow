@@ -1,10 +1,9 @@
 package com.creatorflow.media_service.controllers;
 
-import com.creatorflow.media_service.configuration.GoogleOAuthProperties;
-import com.creatorflow.media_service.dto.request.YouTubeUploadRequest;
 import com.creatorflow.media_service.dto.response.ErrorResponse;
-import com.creatorflow.media_service.services.YouTubeOAuthService;
-import com.creatorflow.media_service.services.YouTubeUploadService;
+import com.creatorflow.media_service.model.PlatformType;
+import com.creatorflow.media_service.services.PlatformAdapter;
+import com.creatorflow.media_service.services.PlatformAdapterRegistry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,141 +13,164 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
-import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Generic OAuth connect/callback controller for all platforms.
+ *
+ * Dispatches to the correct PlatformAdapter via PlatformAdapterRegistry.
+ * No platform-specific logic lives here — adding a new platform = add an adapter bean only.
+ *
+ * Endpoints:
+ *   GET /api/platforms/{platform}/connect   — initiate OAuth flow (authenticated)
+ *   GET /api/platforms/{platform}/callback  — OAuth callback (public — called by provider)
+ *
+ * Content publishing is handled by PublishController (/api/publish/{platform}).
+ */
 @RestController
 @RequestMapping("/api/platforms")
-@Tag(name = "Platform Connections", description = "OAuth connect and video upload for social platforms")
+@Tag(name = "Platform Connections", description = "OAuth connect and callback for social platforms")
 public class PlatformController {
 
     private static final Logger log = LoggerFactory.getLogger(PlatformController.class);
 
-    private static final String DASHBOARD_PATH         = "/dashboard";
-    private static final String YOUTUBE_CONNECTED_PARAM = "?youtube=connected";
-    private static final String YOUTUBE_ERROR_PARAM     = "?youtube=error&reason=";
+    private static final String DASHBOARD_PATH  = "/dashboard";
+    private static final String CONNECTED_PARAM = "?platform=%s&status=connected";
+    private static final String ERROR_PARAM     = "?platform=%s&status=error&reason=";
 
-    private final YouTubeOAuthService youTubeOAuthService;
-    private final YouTubeUploadService youTubeUploadService;
-    private final GoogleOAuthProperties googleOAuthProperties;
+    private final PlatformAdapterRegistry registry;
 
-    public PlatformController(YouTubeOAuthService youTubeOAuthService,
-                              YouTubeUploadService youTubeUploadService,
-                              GoogleOAuthProperties googleOAuthProperties) {
-        this.youTubeOAuthService = youTubeOAuthService;
-        this.youTubeUploadService = youTubeUploadService;
-        this.googleOAuthProperties = googleOAuthProperties;
+    @Value("${app.frontend-base-url}")
+    private String frontendBaseUrl;
+
+    public PlatformController(PlatformAdapterRegistry registry) {
+        this.registry = registry;
     }
 
+    // -------------------------------------------------------------------------
+    // Generic OAuth connect — redirects user to platform consent screen
+    // -------------------------------------------------------------------------
+
     @Operation(
-            summary = "Initiate YouTube OAuth flow",
-            description = "Redirects the user to Google OAuth consent screen. " +
-                          "ownerId must be injected server-side from the session — never passed from the browser directly."
+            summary = "Initiate OAuth flow for a platform",
+            description = "Redirects user to the platform's OAuth consent screen. " +
+                          "ownerId must be injected server-side from the session by the BFF — never from the browser."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "302", description = "Redirect to Google OAuth consent screen"),
+            @ApiResponse(responseCode = "302", description = "Redirect to OAuth consent screen"),
+            @ApiResponse(responseCode = "400", description = "Unknown platform",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Unauthenticated",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @GetMapping("/youtube/connect")
+    @GetMapping("/{platform}/connect")
     @PreAuthorize("hasRole('CREATOR')")
-    public ResponseEntity<Void> connectYouTube(
+    public ResponseEntity<Void> connect(
+            @Parameter(description = "Platform name: youtube | instagram | twitter")
+            @PathVariable String platform,
             @Parameter(description = "Owner UUID — injected from session by BFF, never from browser")
             @RequestParam("ownerId") UUID ownerId) {
-        String authUrl = youTubeOAuthService.buildAuthorizationUrl(ownerId);
-        log.info("YouTube OAuth URL for ownerId={}: {}", ownerId, authUrl);
+
+        PlatformType platformType = parsePlatform(platform);
+        PlatformAdapter adapter = registry.getAdapter(platformType);
+        String authUrl = adapter.buildAuthorizationUrl(ownerId);
+        log.info("OAuth connect: platform={} ownerId={}", platformType, ownerId);
         return ResponseEntity.status(302).location(URI.create(authUrl)).build();
     }
 
+    // -------------------------------------------------------------------------
+    // Generic OAuth callback — called by the platform after user approves
+    // -------------------------------------------------------------------------
+
     @Operation(
-            summary = "Google OAuth callback",
-            description = "Public endpoint — Google redirects here after user grants/denies consent. " +
-                          "Exchanges auth code for tokens, stores channel info, redirects to frontend dashboard."
+            summary = "OAuth callback for a platform",
+            description = "Public endpoint — the OAuth provider redirects here after user grants/denies consent. " +
+                          "Exchanges auth code for tokens, persists PlatformAccount, redirects to frontend dashboard."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "302", description = "Redirect to frontend dashboard (success or error)"),
-            @ApiResponse(responseCode = "400", description = "Missing or invalid code/state params")
+            @ApiResponse(responseCode = "400", description = "Missing or invalid params")
     })
-    @GetMapping("/youtube/callback")
-    public ResponseEntity<Void> youTubeCallback(
-            @Parameter(description = "Auth code from Google — present on success")
+    @GetMapping("/{platform}/callback")
+    public ResponseEntity<Void> callback(
+            @Parameter(description = "Platform name: youtube | instagram | twitter")
+            @PathVariable String platform,
+            @Parameter(description = "Auth code — present on success")
             @RequestParam(value = "code", required = false) String code,
-            @Parameter(description = "ownerId UUID passed as state during connect")
+            @Parameter(description = "State param — encodes ownerId (and PKCE verifier key for Twitter)")
             @RequestParam(value = "state", required = false) String state,
-            @Parameter(description = "Error code from Google — present when user denies consent")
+            @Parameter(description = "Error — present when user denies consent")
             @RequestParam(value = "error", required = false) String error) {
 
-        String frontendBase = googleOAuthProperties.getFrontendBaseUrl();
+        PlatformType platformType;
+        try {
+            platformType = parsePlatform(platform);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(302)
+                    .location(URI.create(frontendBaseUrl + DASHBOARD_PATH + "?status=error&reason=unknown_platform"))
+                    .build();
+        }
+
+        String connectedRedirect = frontendBaseUrl + DASHBOARD_PATH +
+                String.format(CONNECTED_PARAM, platform);
+        String errorRedirect = frontendBaseUrl + DASHBOARD_PATH +
+                String.format(ERROR_PARAM, platform);
 
         if (error != null) {
-            log.warn("YouTube OAuth denied or failed: error={} state={}", error, state);
+            log.warn("OAuth denied: platform={} error={} state={}", platformType, error, state);
             return ResponseEntity.status(302)
-                    .location(URI.create(frontendBase + DASHBOARD_PATH + YOUTUBE_ERROR_PARAM + error))
+                    .location(URI.create(errorRedirect + error))
                     .build();
         }
 
         if (code == null || state == null) {
-            log.error("YouTube callback missing code or state: code={} state={}", code, state);
+            log.error("OAuth callback missing code or state: platform={}", platformType);
             return ResponseEntity.status(302)
-                    .location(URI.create(frontendBase + DASHBOARD_PATH + YOUTUBE_ERROR_PARAM + "missing_params"))
+                    .location(URI.create(errorRedirect + "missing_params"))
                     .build();
         }
 
         try {
-            youTubeOAuthService.handleCallback(code, state);
+            PlatformAdapter adapter = registry.getAdapter(platformType);
+            adapter.handleCallback(code, state);
+            log.info("OAuth connected: platform={}", platformType);
             return ResponseEntity.status(302)
-                    .location(URI.create(frontendBase + DASHBOARD_PATH + YOUTUBE_CONNECTED_PARAM))
+                    .location(URI.create(connectedRedirect))
                     .build();
         } catch (IllegalArgumentException e) {
-            log.error("Invalid OAuth state in callback: state={}", state, e);
+            log.error("Invalid OAuth state: platform={} state={}", platformType, state, e);
             return ResponseEntity.status(302)
-                    .location(URI.create(frontendBase + DASHBOARD_PATH + YOUTUBE_ERROR_PARAM + "invalid_state"))
+                    .location(URI.create(errorRedirect + "invalid_state"))
                     .build();
         } catch (Exception e) {
-            log.error("YouTube callback failed: state={}", state, e);
+            log.error("OAuth callback failed: platform={}", platformType, e);
             return ResponseEntity.status(302)
-                    .location(URI.create(frontendBase + DASHBOARD_PATH + YOUTUBE_ERROR_PARAM + "connection_failed"))
+                    .location(URI.create(errorRedirect + "server_error"))
                     .build();
         }
     }
 
-    @Operation(
-            summary = "Upload media file to YouTube",
-            description = "Streams an already-confirmed S3 media file to YouTube via videos.insert API. " +
-                          "ownerId is injected server-side by the BFF — never supplied by the browser."
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Upload successful — returns YouTube video ID"),
-            @ApiResponse(responseCode = "404", description = "Media file not found or YouTube not connected",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "422", description = "Media file not yet uploaded to S3",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "502", description = "YouTube API error or token exchange failure",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @PostMapping("/youtube/upload")
-    @PreAuthorize("hasRole('CREATOR')")
-    public ResponseEntity<Map<String, String>> uploadToYouTube(
-            @RequestBody YouTubeUploadRequest request) {
-        String videoId = youTubeUploadService.uploadVideo(
-                request.ownerId(),
-                request.mediaFileId(),
-                request.title(),
-                request.description(),
-                request.privacyStatus()
-        );
-        return ResponseEntity.ok(Map.of("youtubeVideoId", videoId));
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private PlatformType parsePlatform(String platform) {
+        try {
+            return PlatformType.valueOf(platform.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Unknown platform: " + platform);
+        }
     }
 }

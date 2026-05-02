@@ -8,6 +8,7 @@ import com.creatorflow.media_service.dto.response.UploadUrlResponse;
 import com.creatorflow.media_service.exception.MediaAlreadyConfirmedException;
 import com.creatorflow.media_service.exception.MediaAlreadyUploadedException;
 import com.creatorflow.media_service.exception.MediaNotFoundException;
+import com.creatorflow.media_service.exception.S3FileNotFoundException;
 import com.creatorflow.media_service.model.MediaFile;
 import com.creatorflow.media_service.model.MediaStatus;
 import com.creatorflow.media_service.repository.MediaFileRepository;
@@ -49,6 +50,16 @@ public class MediaFileService {
 
     @Transactional
     public UploadUrlResponse createUploadUrl(UploadUrlRequest request) {
+        if (request.getOwnerId() == null) {
+            throw new IllegalArgumentException("ownerId is required");
+        }
+        if (request.getFileName() == null || request.getFileName().isBlank()) {
+            throw new IllegalArgumentException("fileName is required");
+        }
+        if (request.getMimeType() == null || request.getMimeType().isBlank()) {
+            throw new IllegalArgumentException("mimeType is required");
+        }
+
         if (!ALLOWED_MIME_TYPES.contains(request.getMimeType())) {
             throw new IllegalArgumentException(
                     "Unsupported file type: " + request.getMimeType() +
@@ -117,7 +128,7 @@ public class MediaFileService {
                     .key(mediaFile.getS3Key())
                     .build());
         } catch (NoSuchKeyException e) {
-            throw new IllegalStateException("File not found in S3 — upload may have failed. Please retry the upload.");
+            throw new S3FileNotFoundException(request.getMediaId());
         }
 
         mediaFile.setStatus(MediaStatus.UPLOADED);

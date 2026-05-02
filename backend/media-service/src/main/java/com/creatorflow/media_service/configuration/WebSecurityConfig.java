@@ -34,7 +34,9 @@ public class WebSecurityConfig {
     };
 
     private static final String[] PUBLIC_URLS = {
-            "/api/platforms/youtube/callback"
+            "/api/platforms/youtube/callback",
+            "/api/platforms/instagram/callback",
+            "/api/platforms/twitter/callback"
     };
 
     private final CorsConfigurationSource corsConfigurationSource;
