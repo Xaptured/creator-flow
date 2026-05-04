@@ -155,13 +155,14 @@ services:
   # The init script at scripts/localstack/init.sh runs automatically once
   # LocalStack is ready and creates:
   #   - SNS topic:  creatorflow-events
-  #   - SQS queues: content-scheduler-queue, post-dispatcher-queue, analytics-queue
+  #   - SQS queues: content-scheduler-queue, post-dispatcher-queue, analytics-queue,
+  #                 content-status-queue
   #   - DLQ:        content-dispatcher-dlq  (redrive on post-dispatcher-queue)
-  #   - SNS->SQS subscriptions for all 3 main queues
+  #   - SNS->SQS subscriptions
   #
   # Verify setup:
-  #   aws --endpoint-url=http://localhost:4566 --region us-east-1 sns list-topics
-  #   aws --endpoint-url=http://localhost:4566 --region us-east-1 sqs list-queues
+  #   aws --endpoint-url=http://localhost:4566 --region ap-south-1 sns list-topics
+  #   aws --endpoint-url=http://localhost:4566 --region ap-south-1 sqs list-queues
   # --------------------------------------------------------------------------
   localstack:
     image: localstack/localstack:3.4
@@ -171,7 +172,7 @@ services:
       - "4566:4566"
     environment:
       SERVICES: sns,sqs
-      DEFAULT_REGION: us-east-1
+      DEFAULT_REGION: ap-south-1
       PERSISTENCE: 1
       DEBUG: 0
     volumes:
