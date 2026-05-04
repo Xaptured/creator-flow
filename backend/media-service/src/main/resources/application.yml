@@ -87,10 +87,17 @@ app:
     refill-period-seconds: 60
   aws:
     region: ${AWS_REGION}
+    endpoint-override: ${AWS_ENDPOINT_OVERRIDE}
     bucket-name: ${AWS_S3_BUCKET}
     upload-url-expiry-minutes: 15
     read-url-expiry-hours: 1
     max-file-size-bytes: 524288000
+    queues:
+      post-dispatcher: ${AWS_SQS_QUEUE_POST_DISPATCHER}
+    topics:
+      content-published: ${AWS_SNS_TOPIC_CONTENT_PUBLISHED}
+  sqs:
+    poll-delay-ms: ${SQS_POLL_DELAY_MS}
   frontend-base-url: ${FRONTEND_BASE_URL}
   google:
     oauth:

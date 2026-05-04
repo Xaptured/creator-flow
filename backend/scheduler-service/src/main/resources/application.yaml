@@ -36,11 +36,6 @@ spring:
   profiles:
     active: ${APP_ENV}
 
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
-      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
-
 server:
   port: ${SCHEDULER_SERVER_PORT}
   servlet:
@@ -78,10 +73,14 @@ app:
     refill-period-seconds: 60
   aws:
     endpoint-override: ${AWS_ENDPOINT_OVERRIDE}
-    region: us-east-1
+    region: ${AWS_REGION}
     queues:
       content-scheduler: ${AWS_SQS_QUEUE_CONTENT_SCHEDULER}
-      post-dispatcher:   ${AWS_SQS_QUEUE_POST_DISPATCHER}
       analytics:         ${AWS_SQS_QUEUE_ANALYTICS}
+      content-status:    ${AWS_SQS_QUEUE_CONTENT_STATUS}
     topics:
       creatorflow-events: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS}
+  scheduler:
+    publish-job-interval-seconds: ${PUBLISH_JOB_INTERVAL_SECONDS}
+  sqs:
+    poll-delay-ms: ${SQS_POLL_DELAY_MS}

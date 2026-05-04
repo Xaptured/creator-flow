@@ -26,17 +26,17 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Handles content publishing to social platforms.
+ * Handles user-triggered content publishing to social platforms.
  *
  * A single generic endpoint covers all platforms — the correct PlatformAdapter
  * is resolved from the {platform} path variable via PlatformAdapterRegistry.
  * Adding a new platform requires only a new adapter bean, not a new endpoint.
  *
- * This endpoint serves two callers:
- *   1. Frontend — "Post Now" / instant publish, triggered by the user directly.
- *   2. SQS consumer (internal, media-service) — scheduled publish, triggered when
- *      scheduledAt time is reached. The consumer calls adapter.publish() directly
- *      on the service layer and does not go through this HTTP endpoint.
+ * This endpoint is for the frontend "Post Now" / instant publish flow only.
+ * Scheduled publish is fully event-driven: scheduler-service publishes a
+ * CONTENT_READY_TO_PUBLISH SNS event → post-dispatcher-queue SQS →
+ * PublishDispatcherListener (media-service) → PlatformAdapter.publish().
+ * No HTTP call is made between services for scheduled publish.
  *
  * Endpoints:
  *   POST /api/publish/{platform}  — publish content to a platform (authenticated)
@@ -46,7 +46,6 @@ import java.util.UUID;
  *   - Resolve the correct PlatformAdapter from the registry
  *   - Build a transient Content object from the request
  *   - Delegate to adapter.publish()
- *   - Return the platform-specific result ID (videoId / mediaId / tweetId)
  */
 @RestController
 @RequestMapping("/api/publish")
@@ -113,10 +112,9 @@ public class PublishController {
     /**
      * Build a transient Content object from the publish request.
      *
-     * This is NOT persisted — it is a lightweight carrier for the fields the
-     * adapter needs. Persistent Content records are created by the content
-     * scheduling flow (separate service/ticket). The SQS consumer will load
-     * a real Content entity by ID and pass it to adapter.publish() directly.
+     * Not persisted — lightweight carrier for fields the adapter needs.
+     * For scheduled publish, PublishDispatcherProcessor loads the real
+     * Content entity from the DB and calls adapter.publish() directly.
      */
     private Content buildContent(PublishRequest request) {
         Content content = new Content();
