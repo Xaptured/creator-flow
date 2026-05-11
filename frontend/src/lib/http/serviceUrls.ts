@@ -5,6 +5,7 @@
 const SERVICE_BASE_URLS: Record<string, string> = {
   media: process.env.MEDIA_SERVICE_URL ?? 'http://localhost:8082/creator-flow/media',
   auth: process.env.AUTH_SERVICE_URL ?? 'http://localhost:8081/creator-flow/auth',
+  scheduler: process.env.SCHEDULER_SERVICE_URL ?? 'http://localhost:8084/creator-flow/scheduler',
 };
 
 /**

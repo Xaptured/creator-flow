@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -72,11 +73,29 @@ public class MediaController {
     public ResponseEntity<MediaFileResponse> confirmUpload(@RequestBody ConfirmUploadRequest request) {
         return ResponseEntity.ok(mediaFileService.confirmUpload(request));
     }
+    @Operation(
+            summary = "List uploaded media files for the owner",
+            description = "Returns all UPLOADED media files for the owner, ordered by createdAt descending. " +
+                    "Used by the Vault picker in the Composer. ownerId injected server-side by BFF."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List returned successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<List<MediaFileResponse>> listMediaFiles(
+            @Parameter(description = "Owner UUID — injected from session by BFF") @RequestParam UUID ownerId) {
+        return ResponseEntity.ok(mediaFileService.listMediaFiles(ownerId));
+    }
 
     @Operation(
             summary = "Get media file metadata + presigned read URL",
             description = "Returns media file metadata and a short-lived presigned GET URL for serving the file. " +
-                          "Ownership enforced — returns 404 if file belongs to a different user."
+                    "Ownership enforced — returns 404 if file belongs to a different user."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Media file found",

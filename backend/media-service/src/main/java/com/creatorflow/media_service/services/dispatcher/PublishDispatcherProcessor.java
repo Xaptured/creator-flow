@@ -6,6 +6,7 @@ import com.creatorflow.media_service.dto.CreatorflowEventMessage;
 import com.creatorflow.media_service.model.Content;
 import com.creatorflow.media_service.model.ContentStatus;
 import com.creatorflow.media_service.model.PlatformType;
+import com.creatorflow.media_service.exception.OAuthTokenExchangeException;
 import com.creatorflow.media_service.repository.ContentRepository;
 import com.creatorflow.media_service.services.PlatformAdapter;
 import com.creatorflow.media_service.services.PlatformAdapterRegistry;
@@ -70,7 +71,7 @@ public class PublishDispatcherProcessor {
         this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = Exception.class)
     public void process(String queueUrl, Message sqsMessage) {
         ContentReadyToPublishPayload payload;
         try {
@@ -120,6 +121,17 @@ public class PublishDispatcherProcessor {
             log.info("publish-dispatcher: published to {} — contentId: {}", platform, contentId);
             emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId);
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
+        } catch (OAuthTokenExchangeException e) {
+            if (e.isInvalidGrant()) {
+                log.error("publish-dispatcher: OAuth token revoked (invalid_grant) — platform: {}, contentId: {}, ownerId: {} — marking FAILED, deleting message",
+                        platform, contentId, ownerId, e);
+                emitStatusEvent(EVENT_FAILED, contentId, ownerId);
+                deleteMessage(queueUrl, sqsMessage.receiptHandle());
+            } else {
+                log.error("publish-dispatcher: transient OAuth error — platform: {}, contentId: {}",
+                        platform, contentId, e);
+                emitStatusEvent(EVENT_FAILED, contentId, ownerId);
+            }
         } catch (Exception e) {
             log.error("publish-dispatcher: platform publish failed — platform: {}, contentId: {}",
                     platform, contentId, e);

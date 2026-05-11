@@ -1,3 +1,4 @@
+import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { makeApiError } from '@/lib/response/error';
 
 export function uploadToS3(
@@ -33,5 +34,14 @@ export function uploadToS3(
     xhr.open('PUT', presignedUrl);
     xhr.setRequestHeader('Content-Type', file.type);
     xhr.send(file);
+  });
+}
+
+export async function rescheduleContent(
+  contentId: string,
+  scheduledAt: string
+): Promise<void> {
+  await browserAxiosClient.patch(`/api/scheduler/content/${contentId}/reschedule`, {
+    scheduledAt,
   });
 }

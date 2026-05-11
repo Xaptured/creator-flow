@@ -3,6 +3,7 @@ package com.creatorflow.scheduler_service.services;
 import com.creatorflow.scheduler_service.dto.request.ScheduleContentRequest;
 import com.creatorflow.scheduler_service.dto.response.ContentStatusResponse;
 import com.creatorflow.scheduler_service.dto.response.ScheduleContentResponse;
+import com.creatorflow.scheduler_service.dto.response.ScheduledContentSummary;
 import com.creatorflow.scheduler_service.exception.ContentNotFoundException;
 import com.creatorflow.scheduler_service.model.Content;
 import com.creatorflow.scheduler_service.model.ContentStatus;
@@ -92,6 +93,43 @@ public class SchedulerService {
         }
 
         return responses;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScheduledContentSummary> listContent(UUID ownerId) {
+        return contentRepository.findAllByOwnerIdOrderByScheduledAtAsc(ownerId)
+                .stream()
+                .map(c -> ScheduledContentSummary.from(c, objectMapper))
+                .toList();
+    }
+
+    /**
+     * Update scheduled_at for a SCHEDULED content row and reset status if needed.
+     *
+     * <p>Rejects if status is PUBLISHING or PUBLISHED — those rows are already in-flight
+     * or done. Because Quartz uses a poll-based approach (queries DB every N seconds),
+     * no per-row trigger needs to be cancelled. Updating scheduled_at in the DB is
+     * sufficient — the next poll cycle picks it up.</p>
+     */
+    @Transactional
+    public void reschedule(UUID contentId, UUID ownerId, Instant newScheduledAt) {
+        Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
+                .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));
+
+        ContentStatus status = content.getStatus();
+        if (status == ContentStatus.PUBLISHING || status == ContentStatus.PUBLISHED) {
+            throw new IllegalStateException(
+                    "Cannot reschedule content with status: " + status
+            );
+        }
+
+        content.setScheduledAt(LocalDateTime.ofInstant(newScheduledAt, ZoneOffset.UTC));
+        if (status == ContentStatus.FAILED) {
+            content.setStatus(ContentStatus.SCHEDULED);
+        }
+        contentRepository.save(content);
+        log.info("Content rescheduled — contentId: {}, ownerId: {}, newScheduledAt: {}",
+                contentId, ownerId, newScheduledAt);
     }
 
     @Transactional(readOnly = true)

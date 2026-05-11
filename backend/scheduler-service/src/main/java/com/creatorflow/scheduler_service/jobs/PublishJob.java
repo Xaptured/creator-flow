@@ -52,7 +52,7 @@ public class PublishJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
         List<Content> dueContent = contentRepository.findDueContent(ContentStatus.SCHEDULED, now);
 
         if (dueContent.isEmpty()) {
