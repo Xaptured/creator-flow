@@ -36,3 +36,14 @@ export async function getMediaFile(
   });
   return data;
 }
+
+export async function listMediaFiles(
+  ownerId: string,
+  accessToken: string
+): Promise<MediaFile[]> {
+  const url = buildUrl('media', '/v1.0/api/media', undefined, { ownerId });
+  const { data } = await axiosClient.get<MediaFile[]>(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return data;
+}

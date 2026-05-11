@@ -25,7 +25,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self'",
-              "connect-src 'self' http://localhost:8080 http://localhost:8081 http://localhost:8082 https://*.amazonaws.com",
+              "connect-src 'self' http://localhost:8080 http://localhost:8081 http://localhost:8082 http://localhost:8083 https://*.amazonaws.com",
               "frame-ancestors 'none'",
             ].join('; '),
           },

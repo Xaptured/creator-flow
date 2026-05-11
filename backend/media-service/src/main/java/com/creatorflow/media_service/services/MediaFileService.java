@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -145,6 +146,15 @@ public class MediaFileService {
 
         String readUrl = s3Service.generateGetUrl(mediaFile.getS3Key()).url().toString();
         return toResponse(mediaFile, readUrl);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MediaFileResponse> listMediaFiles(UUID ownerId) {
+        return mediaFileRepository
+                .findAllByOwnerIdAndStatusOrderByCreatedAtDesc(ownerId, MediaStatus.UPLOADED)
+                .stream()
+                .map(f -> toResponse(f, s3Service.generateGetUrl(f.getS3Key()).url().toString()))
+                .toList();
     }
 
     private MediaFileResponse toResponse(MediaFile mediaFile, String readUrl) {

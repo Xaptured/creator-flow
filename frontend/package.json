@@ -11,6 +11,7 @@
   "dependencies": {
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.5",
+    "@mui/icons-material": "^6.4.8",
     "@mui/material": "^6.4.8",
     "axios": "^1.15.2",
     "axios-retry": "^4.5.0",
@@ -18,7 +19,8 @@
     "next-auth": "^5.0.0-beta.25",
     "pino": "^9.6.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "swr": "^2.4.1"
   },
   "devDependencies": {
     "@types/node": "^20",

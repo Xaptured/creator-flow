@@ -216,10 +216,9 @@ public class YouTubeClient {
             return parseTokenResponse(response.getBody(), operation);
 
         } catch (HttpClientErrorException e) {
-            // 400 invalid_grant = refresh token revoked by user from Google account settings
             if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
                 throw new OAuthTokenExchangeException(
-                        "Google token request failed (invalid_grant — token may be revoked): " + operation, e);
+                        "Google token request failed (invalid_grant — token may be revoked): " + operation, e, true);
             }
             throw new OAuthTokenExchangeException("Google token request failed: " + operation, e);
         } catch (RestClientException e) {

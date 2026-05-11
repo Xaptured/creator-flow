@@ -5,6 +5,7 @@ import com.creatorflow.media_service.model.MediaStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,4 +17,6 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
     Optional<MediaFile> findByOwnerIdAndOriginalNameAndStatus(UUID ownerId, String originalName, MediaStatus status);
 
     boolean existsByOwnerIdAndOriginalNameAndStatus(UUID ownerId, String originalName, MediaStatus status);
+
+    List<MediaFile> findAllByOwnerIdAndStatusOrderByCreatedAtDesc(UUID ownerId, MediaStatus status);
 }

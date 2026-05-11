@@ -25,10 +25,17 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("BAD_REQUEST", HttpStatus.BAD_REQUEST, ex.getMessage()));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("INVALID_STATE", HttpStatus.CONFLICT, ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.of("INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred"));
+                .body(ErrorResponse.of("INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR,
+                        "An unexpected error occurred"));
     }
 }

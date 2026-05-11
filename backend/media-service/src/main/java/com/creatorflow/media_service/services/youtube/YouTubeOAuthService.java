@@ -12,6 +12,7 @@ import com.creatorflow.media_service.services.PlatformTokenCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -117,8 +118,15 @@ public class YouTubeOAuthService {
      * - Not connected → PlatformNotConnectedException → 404
      * - No refresh token → OAuthTokenExchangeException → 502
      * - Token revoked (invalid_grant from Google) → OAuthTokenExchangeException → 502
+     *
+     * Uses REQUIRES_NEW so a token-refresh failure never poisons the caller's publish
+     * transaction. OAuthTokenExchangeException is a business error (revoked token), not a
+     * DB consistency problem — noRollbackFor prevents marking this tx rollback-only on throw.
      */
-    @Transactional
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            noRollbackFor = { OAuthTokenExchangeException.class, PlatformNotConnectedException.class }
+    )
     public void refreshTokenIfExpired(UUID ownerId) {
         PlatformAccount account = platformAccountRepository
                 .findByOwnerIdAndPlatform(ownerId, PlatformType.YOUTUBE)
@@ -140,7 +148,24 @@ public class YouTubeOAuthService {
                     "No refresh token stored for user: " + ownerId + " — re-connect required");
         }
 
-        YouTubeClient.TokenResponse tokens = youTubeClient.refreshAccessToken(account.getRefreshToken());
+        YouTubeClient.TokenResponse tokens;
+        try {
+            tokens = youTubeClient.refreshAccessToken(account.getRefreshToken());
+        } catch (OAuthTokenExchangeException e) {
+            if (e.isInvalidGrant()) {
+                account.setRefreshToken(null);
+                account.setExpiresAt(LocalDateTime.now().minusSeconds(1));
+                platformAccountRepository.save(account);
+                try {
+                    platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+                } catch (Exception cacheEx) {
+                    log.warn("Failed to evict YouTube token cache after invalid_grant: ownerId={}", ownerId, cacheEx);
+                }
+                log.warn("YouTube refresh token revoked — marked account as expired: ownerId={}", ownerId);
+            }
+            throw e;
+        }
+
         account.setAccessToken(tokens.accessToken());
         account.setExpiresAt(LocalDateTime.now().plusSeconds(tokens.expiresIn() - TOKEN_EXPIRY_BUFFER_SECONDS));
         platformAccountRepository.save(account);

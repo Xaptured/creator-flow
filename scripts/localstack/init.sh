@@ -7,7 +7,9 @@ set -euo pipefail
 
 REGION="ap-south-1"
 ENDPOINT="http://localhost:4566"
-TMPDIR=$(mktemp -d)
+# Use 'aws --endpoint-url' directly — works on all platforms (Windows/Mac/Linux)
+# without needing the awscli-local package (awslocal).
+AWS="aws --endpoint-url=$ENDPOINT"
 
 echo "============================================================"
 echo " CreatorFlow - LocalStack Init"
@@ -15,7 +17,7 @@ echo "============================================================"
 
 # 1. SNS topic: creatorflow-events (fan-out — scheduler-service publishes here)
 echo "[1/8] Creating SNS topic: creatorflow-events"
-TOPIC_ARN=$(awslocal sns create-topic \
+TOPIC_ARN=$($AWS sns create-topic \
   --name creatorflow-events \
   --region "$REGION" \
   --query TopicArn \
@@ -24,7 +26,7 @@ echo "      ARN: $TOPIC_ARN"
 
 # 2. SNS topic: content-published (media-service publishes CONTENT_PUBLISHED/FAILED here)
 echo "[2/8] Creating SNS topic: content-published"
-CONTENT_PUBLISHED_TOPIC_ARN=$(awslocal sns create-topic \
+CONTENT_PUBLISHED_TOPIC_ARN=$($AWS sns create-topic \
   --name content-published \
   --region "$REGION" \
   --query TopicArn \
@@ -33,12 +35,12 @@ echo "      ARN: $CONTENT_PUBLISHED_TOPIC_ARN"
 
 # 3. DLQ
 echo "[3/8] Creating DLQ: content-dispatcher-dlq"
-DLQ_URL=$(awslocal sqs create-queue \
+DLQ_URL=$($AWS sqs create-queue \
   --queue-name content-dispatcher-dlq \
   --region "$REGION" \
   --query QueueUrl \
   --output text)
-DLQ_ARN=$(awslocal sqs get-queue-attributes \
+DLQ_ARN=$($AWS sqs get-queue-attributes \
   --queue-url "$DLQ_URL" \
   --attribute-names QueueArn \
   --region "$REGION" \
@@ -49,12 +51,12 @@ echo "      ARN: $DLQ_ARN"
 
 # 4. content-scheduler-queue (scheduler-service: SqsMessageListener — logging/debug only)
 echo "[4/8] Creating SQS queue: content-scheduler-queue"
-SCHEDULER_QUEUE_URL=$(awslocal sqs create-queue \
+SCHEDULER_QUEUE_URL=$($AWS sqs create-queue \
   --queue-name content-scheduler-queue \
   --region "$REGION" \
   --query QueueUrl \
   --output text)
-SCHEDULER_QUEUE_ARN=$(awslocal sqs get-queue-attributes \
+SCHEDULER_QUEUE_ARN=$($AWS sqs get-queue-attributes \
   --queue-url "$SCHEDULER_QUEUE_URL" \
   --attribute-names QueueArn \
   --region "$REGION" \
@@ -64,26 +66,20 @@ echo "      URL: $SCHEDULER_QUEUE_URL"
 
 # 5. post-dispatcher-queue + redrive (media-service: PublishDispatcherListener consumes)
 echo "[5/8] Creating SQS queue: post-dispatcher-queue (with DLQ redrive policy)"
-DISPATCHER_QUEUE_URL=$(awslocal sqs create-queue \
+DISPATCHER_QUEUE_URL=$($AWS sqs create-queue \
   --queue-name post-dispatcher-queue \
   --region "$REGION" \
   --query QueueUrl \
   --output text)
 echo "      URL: $DISPATCHER_QUEUE_URL"
 
-cat > "$TMPDIR/redrive.json" << JSONEOF
-{
-  "RedrivePolicy": "{\"deadLetterTargetArn\":\"$DLQ_ARN\",\"maxReceiveCount\":\"3\"}"
-}
-JSONEOF
-
-awslocal sqs set-queue-attributes \
+$AWS sqs set-queue-attributes \
   --queue-url "$DISPATCHER_QUEUE_URL" \
-  --attributes "file://$TMPDIR/redrive.json" \
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"$DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}" \
   --region "$REGION"
 echo "      Redrive policy set -> content-dispatcher-dlq (maxReceiveCount=3)"
 
-DISPATCHER_QUEUE_ARN=$(awslocal sqs get-queue-attributes \
+DISPATCHER_QUEUE_ARN=$($AWS sqs get-queue-attributes \
   --queue-url "$DISPATCHER_QUEUE_URL" \
   --attribute-names QueueArn \
   --region "$REGION" \
@@ -92,12 +88,12 @@ DISPATCHER_QUEUE_ARN=$(awslocal sqs get-queue-attributes \
 
 # 6. analytics-queue (analytics-service consumes CONTENT_PUBLISHED/FAILED)
 echo "[6/8] Creating SQS queue: analytics-queue"
-ANALYTICS_QUEUE_URL=$(awslocal sqs create-queue \
+ANALYTICS_QUEUE_URL=$($AWS sqs create-queue \
   --queue-name analytics-queue \
   --region "$REGION" \
   --query QueueUrl \
   --output text)
-ANALYTICS_QUEUE_ARN=$(awslocal sqs get-queue-attributes \
+ANALYTICS_QUEUE_ARN=$($AWS sqs get-queue-attributes \
   --queue-url "$ANALYTICS_QUEUE_URL" \
   --attribute-names QueueArn \
   --region "$REGION" \
@@ -107,12 +103,12 @@ echo "      URL: $ANALYTICS_QUEUE_URL"
 
 # 7. content-status-queue (scheduler-service: ContentStatusListener — updates content row to PUBLISHED/FAILED)
 echo "[7/8] Creating SQS queue: content-status-queue"
-CONTENT_STATUS_QUEUE_URL=$(awslocal sqs create-queue \
+CONTENT_STATUS_QUEUE_URL=$($AWS sqs create-queue \
   --queue-name content-status-queue \
   --region "$REGION" \
   --query QueueUrl \
   --output text)
-CONTENT_STATUS_QUEUE_ARN=$(awslocal sqs get-queue-attributes \
+CONTENT_STATUS_QUEUE_ARN=$($AWS sqs get-queue-attributes \
   --queue-url "$CONTENT_STATUS_QUEUE_URL" \
   --attribute-names QueueArn \
   --region "$REGION" \
@@ -126,21 +122,21 @@ echo "[8/8] Subscribing SQS queues to SNS topics"
 # creatorflow-events → post-dispatcher-queue (media-service publishes to platforms)
 #                   → content-scheduler-queue (debug/logging)
 #                   → analytics-queue (analytics fan-out)
-awslocal sns subscribe \
+$AWS sns subscribe \
   --topic-arn "$TOPIC_ARN" \
   --protocol sqs \
   --notification-endpoint "$DISPATCHER_QUEUE_ARN" \
   --region "$REGION" --output text > /dev/null
 echo "      creatorflow-events -> post-dispatcher-queue"
 
-awslocal sns subscribe \
+$AWS sns subscribe \
   --topic-arn "$TOPIC_ARN" \
   --protocol sqs \
   --notification-endpoint "$SCHEDULER_QUEUE_ARN" \
   --region "$REGION" --output text > /dev/null
 echo "      creatorflow-events -> content-scheduler-queue"
 
-awslocal sns subscribe \
+$AWS sns subscribe \
   --topic-arn "$TOPIC_ARN" \
   --protocol sqs \
   --notification-endpoint "$ANALYTICS_QUEUE_ARN" \
@@ -149,21 +145,19 @@ echo "      creatorflow-events -> analytics-queue"
 
 # content-published → content-status-queue (scheduler-service updates content row status)
 #                  → analytics-queue (analytics records publish outcome)
-awslocal sns subscribe \
+$AWS sns subscribe \
   --topic-arn "$CONTENT_PUBLISHED_TOPIC_ARN" \
   --protocol sqs \
   --notification-endpoint "$CONTENT_STATUS_QUEUE_ARN" \
   --region "$REGION" --output text > /dev/null
 echo "      content-published  -> content-status-queue"
 
-awslocal sns subscribe \
+$AWS sns subscribe \
   --topic-arn "$CONTENT_PUBLISHED_TOPIC_ARN" \
   --protocol sqs \
   --notification-endpoint "$ANALYTICS_QUEUE_ARN" \
   --region "$REGION" --output text > /dev/null
 echo "      content-published  -> analytics-queue"
-
-rm -rf "$TMPDIR"
 
 echo ""
 echo "============================================================"

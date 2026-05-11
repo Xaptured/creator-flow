@@ -1,9 +1,11 @@
 package com.creatorflow.media_service.controllers;
 
 import com.creatorflow.media_service.dto.response.ErrorResponse;
+import com.creatorflow.media_service.dto.response.PlatformStatusResponse;
 import com.creatorflow.media_service.model.PlatformType;
 import com.creatorflow.media_service.services.PlatformAdapter;
 import com.creatorflow.media_service.services.PlatformAdapterRegistry;
+import com.creatorflow.media_service.services.PlatformStatusService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -16,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -49,17 +53,36 @@ public class PlatformController {
     private static final String ERROR_PARAM     = "?platform=%s&status=error&reason=";
 
     private final PlatformAdapterRegistry registry;
+    private final PlatformStatusService platformStatusService;
 
     @Value("${app.frontend-base-url}")
     private String frontendBaseUrl;
 
-    public PlatformController(PlatformAdapterRegistry registry) {
+    public PlatformController(PlatformAdapterRegistry registry, PlatformStatusService platformStatusService) {
         this.registry = registry;
+        this.platformStatusService = platformStatusService;
     }
 
-    // -------------------------------------------------------------------------
-    // Generic OAuth connect — redirects user to platform consent screen
-    // -------------------------------------------------------------------------
+    @Operation(
+            summary = "Get platform connection status for the owner",
+            description = "Returns one entry per known platform (YOUTUBE, INSTAGRAM, TWITTER). " +
+                    "Connected platforms include tokenExpiry if available. " +
+                    "ownerId is always injected server-side by the BFF — never from the browser."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Status list returned successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/status")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<List<PlatformStatusResponse>> getStatus(
+            @Parameter(description = "Owner UUID — injected server-side by BFF, never from browser")
+            @RequestParam("ownerId") UUID ownerId) {
+        return ResponseEntity.ok(platformStatusService.getStatusForOwner(ownerId));
+    }
 
     @Operation(
             summary = "Initiate OAuth flow for a platform",
@@ -89,10 +112,6 @@ public class PlatformController {
         log.info("OAuth connect: platform={} ownerId={}", platformType, ownerId);
         return ResponseEntity.status(302).location(URI.create(authUrl)).build();
     }
-
-    // -------------------------------------------------------------------------
-    // Generic OAuth callback — called by the platform after user approves
-    // -------------------------------------------------------------------------
 
     @Operation(
             summary = "OAuth callback for a platform",
@@ -162,9 +181,33 @@ public class PlatformController {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    @Operation(
+            summary = "Disconnect a platform",
+            description = "Deletes the stored OAuth tokens for the given platform and owner. " +
+                          "ownerId is injected from session by the BFF — never from the browser."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Platform disconnected"),
+            @ApiResponse(responseCode = "400", description = "Unknown platform",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping("/{platform}/disconnect")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<Void> disconnect(
+            @Parameter(description = "Platform name: youtube | instagram | twitter")
+            @PathVariable String platform,
+            @Parameter(description = "Owner UUID — injected from session by BFF, never from browser")
+            @RequestParam("ownerId") UUID ownerId) {
+
+        PlatformType platformType = parsePlatform(platform);
+        platformStatusService.disconnect(ownerId, platformType);
+        log.info("Platform disconnected: platform={} ownerId={}", platformType, ownerId);
+        return ResponseEntity.noContent().build();
+    }
 
     private PlatformType parsePlatform(String platform) {
         try {
