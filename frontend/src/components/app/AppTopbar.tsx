@@ -21,7 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard/composer': 'Composer',
   '/dashboard/analytics': 'Analytics',
   '/dashboard/vault': 'Vault',
-  '/dashboard/platforms': 'Platforms',
+  '/dashboard/platforms': 'Settings',
   '/dashboard/settings': 'Settings',
 }
 
