@@ -38,12 +38,15 @@ public class WebSecurityConfig {
             "/api/platforms/instagram/callback",
             "/api/platforms/twitter/callback"
     };
+    private static final String[] INTERNAL_URLS = {
+            "/internal/**"
+    };
 
     private final CorsConfigurationSource corsConfigurationSource;
     private final RateLimitFilter rateLimitFilter;
 
     public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
-                             RateLimitFilter rateLimitFilter) {
+            RateLimitFilter rateLimitFilter) {
         this.corsConfigurationSource = corsConfigurationSource;
         this.rateLimitFilter = rateLimitFilter;
     }
@@ -57,8 +60,10 @@ public class WebSecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers(SWAGGER_UI_URLS).permitAll()
                 .requestMatchers(PUBLIC_URLS).permitAll()
+                .requestMatchers(INTERNAL_URLS).permitAll()
                 .anyRequest().authenticated());
-        http.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+        http.oauth2ResourceServer(
+                oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
         http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
