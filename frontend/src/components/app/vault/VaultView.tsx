@@ -197,7 +197,6 @@ export default function VaultView() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!e.target.files) return
-    // Reset input so same file can be re-selected after error
     e.target.value = ''
 
     if (!file) return
@@ -241,7 +240,6 @@ export default function VaultView() {
 
   return (
     <Box>
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -301,7 +299,6 @@ export default function VaultView() {
         </Button>
       </Box>
 
-      {/* Upload progress bar */}
       {isUploading && (
         <Box sx={{ ...cardSx, mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -377,7 +374,7 @@ export default function VaultView() {
               letterSpacing: '-0.224px',
             }}
           >
-            Failed to load media files. Check that the media service is running.
+            Failed to load media files. Please try again later.
           </Typography>
         </Box>
       )}
