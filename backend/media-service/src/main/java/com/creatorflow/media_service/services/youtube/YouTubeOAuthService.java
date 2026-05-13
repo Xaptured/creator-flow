@@ -167,7 +167,8 @@ public class YouTubeOAuthService {
         }
 
         account.setAccessToken(tokens.accessToken());
-        account.setExpiresAt(LocalDateTime.now().plusSeconds(tokens.expiresIn() - TOKEN_EXPIRY_BUFFER_SECONDS));
+        LocalDateTime newExpiresAt = LocalDateTime.now().plusSeconds(tokens.expiresIn() - TOKEN_EXPIRY_BUFFER_SECONDS);
+        account.setExpiresAt(newExpiresAt);
         platformAccountRepository.save(account);
 
         try {
@@ -175,5 +176,6 @@ public class YouTubeOAuthService {
         } catch (Exception e) {
             log.warn("Failed to evict YouTube token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
         }
+        log.info("YouTube token refreshed: ownerId={} newExpiresAt={}", ownerId, newExpiresAt);
     }
 }

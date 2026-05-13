@@ -170,8 +170,12 @@ public class TwitterClient {
             String refreshToken = body.has("refresh_token") ? body.get("refresh_token").asText() : null;
             return new TokenResponse(body.get("access_token").asText(), refreshToken, expiresIn);
         } catch (HttpClientErrorException e) {
-            log.error("Twitter {} failed: status={} body={}", operation, e.getStatusCode(), e.getResponseBodyAsString());
-            throw new OAuthTokenExchangeException("Twitter " + operation + " failed: " + e.getMessage());
+            String responseBody = e.getResponseBodyAsString();
+            log.error("Twitter {} failed: status={} body={}", operation, e.getStatusCode(), responseBody);
+            boolean isInvalidGrant = responseBody.contains("\"invalid_request\"")
+                    && responseBody.contains("token was invalid");
+            throw new OAuthTokenExchangeException(
+                    "Twitter " + operation + " failed: " + e.getMessage(), e, isInvalidGrant);
         } catch (RestClientException e) {
             log.error("Twitter {} network error", operation, e);
             throw new OAuthTokenExchangeException("Twitter " + operation + " network error: " + e.getMessage());

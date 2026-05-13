@@ -116,3 +116,7 @@ app:
       client-id: ${TWITTER_CLIENT_ID}
       client-secret: ${TWITTER_CLIENT_SECRET}
       redirect-uri: ${TWITTER_REDIRECT_URI}
+  internal:
+    secret: ${INTERNAL_SERVICE_SECRET}
+  token-refresh:
+    refresh-ahead-hours: ${TOKEN_REFRESH_AHEAD_HOURS:12}

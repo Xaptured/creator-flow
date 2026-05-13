@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -145,8 +146,21 @@ public class TwitterOAuthService {
     /**
      * Refresh access token if within TOKEN_REFRESH_THRESHOLD_MINUTES of expiry.
      * Updates DB + evicts Redis cache on success.
+     *
+     * Uses REQUIRES_NEW so a token-refresh failure never poisons the caller's publish
+     * transaction. OAuthTokenExchangeException is a business error (revoked/invalid token),
+     * not a DB consistency problem — noRollbackFor prevents marking this tx rollback-only on throw.
+     *
+     * On invalid_request with an invalid token (Twitter's equivalent of invalid_grant):
+     *   - refresh token is nulled out
+     *   - expiresAt is set to the past to mark the account as expired
+     *   - Redis cache is evicted
+     *   - exception is re-thrown so the caller can log and continue
      */
-    @Transactional
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            noRollbackFor = { OAuthTokenExchangeException.class, PlatformNotConnectedException.class }
+    )
     public void refreshTokenIfExpired(UUID ownerId) {
         PlatformAccount account = platformAccountRepository
                 .findByOwnerIdAndPlatform(ownerId, PlatformType.TWITTER)
@@ -168,7 +182,24 @@ public class TwitterOAuthService {
                     "No refresh token stored for Twitter user: " + ownerId + " — re-connect required");
         }
 
-        TwitterClient.TokenResponse tokens = twitterClient.refreshAccessToken(account.getRefreshToken());
+        TwitterClient.TokenResponse tokens;
+        try {
+            tokens = twitterClient.refreshAccessToken(account.getRefreshToken());
+        } catch (OAuthTokenExchangeException e) {
+            if (e.isInvalidGrant()) {
+                account.setRefreshToken(null);
+                account.setExpiresAt(LocalDateTime.now().minusSeconds(1));
+                platformAccountRepository.save(account);
+                try {
+                    platformTokenCacheService.evictPlatformToken(ownerId, "TWITTER");
+                } catch (Exception cacheEx) {
+                    log.warn("Failed to evict Twitter token cache after invalid token: ownerId={}", ownerId, cacheEx);
+                }
+                log.warn("Twitter refresh token invalid — marked account as expired: ownerId={}", ownerId);
+            }
+            throw e;
+        }
+
         account.setAccessToken(tokens.accessToken());
         if (tokens.refreshToken() != null) {
             account.setRefreshToken(tokens.refreshToken());

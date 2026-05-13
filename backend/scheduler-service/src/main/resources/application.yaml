@@ -82,5 +82,10 @@ app:
       creatorflow-events: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS}
   scheduler:
     publish-job-interval-seconds: ${PUBLISH_JOB_INTERVAL_SECONDS}
+    token-refresh-job-interval-seconds: ${TOKEN_REFRESH_JOB_INTERVAL_SECONDS:3600}
   sqs:
     poll-delay-ms: ${SQS_POLL_DELAY_MS}
+  media-service:
+    base-url: ${MEDIA_SERVICE_BASE_URL}
+  internal:
+    secret: ${INTERNAL_SERVICE_SECRET}
