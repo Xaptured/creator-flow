@@ -1,19 +1,36 @@
 'use client'
 
-import React from 'react'
+import React, { useRef, useState } from 'react'
+import Image from 'next/image'
 import useSWR from 'swr'
-import { Box, Typography, Button, Grid, Skeleton, Chip } from '@mui/material'
+import { Box, Typography, Button, Grid, Skeleton, Chip, LinearProgress, Alert, Snackbar } from '@mui/material'
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined'
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined'
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined'
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
 import { MediaFile } from '@/lib/response/media'
 import { getMediaFiles } from '@/service/getService'
+import { requestUploadUrl, confirmUpload } from '@/service/postService'
+import { uploadToS3 } from '@/service/putService'
+import { toApiError } from '@/service/errorService'
+
+// Must mirror backend MediaFileService.ALLOWED_MIME_TYPES
+const ALLOWED_MIME_TYPES = new Set([
+  'video/mp4',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+])
+
+const MAX_FILE_SIZE_BYTES = 524_288_000 // 500 MB — must match app.aws.max-file-size-bytes
 
 const cardSx = {
-  backgroundColor: "var(--th-bg-card)",
-  border: "1px solid var(--th-border-card)",
-  borderRadius: "12px",
+  backgroundColor: 'var(--th-bg-card)',
+  border: '1px solid var(--th-border-card)',
+  borderRadius: '12px',
   p: 3,
 }
 
@@ -27,10 +44,10 @@ function FileCardSkeleton() {
   return (
     <Box
       sx={{
-        backgroundColor: "var(--th-bg-card)",
-        border: "1px solid var(--th-border-card)",
-        borderRadius: "12px",
-        overflow: "hidden",
+        backgroundColor: 'var(--th-bg-card)',
+        border: '1px solid var(--th-border-card)',
+        borderRadius: '12px',
+        overflow: 'hidden',
       }}
     >
       <Skeleton variant="rectangular" width="100%" height={140} />
@@ -49,15 +66,23 @@ function isReadyStatus(status: string): boolean {
 function FilePreview({ file }: { file: MediaFile }) {
   const coverStyle: React.CSSProperties = { width: '100%', height: '100%', objectFit: 'cover' }
   if (file.mimeType.startsWith('image/') && file.readUrl) {
-    return <img src={file.readUrl} alt={file.originalName} style={coverStyle} />
+    return (
+      <Image
+        src={file.readUrl}
+        alt={file.originalName}
+        fill
+        style={{ objectFit: 'cover' }}
+        sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 25vw"
+      />
+    )
   }
   if (file.mimeType.startsWith('video/') && file.readUrl) {
     return <video src={file.readUrl} style={coverStyle} muted={true} />
   }
   if (file.mimeType.startsWith('video/')) {
-    return <VideocamOutlinedIcon sx={{ fontSize: 36, color: "var(--th-text-tertiary)" }} />
+    return <VideocamOutlinedIcon sx={{ fontSize: 36, color: 'var(--th-text-tertiary)' }} />
   }
-  return <ImageOutlinedIcon sx={{ fontSize: 36, color: "var(--th-text-tertiary)" }} />
+  return <ImageOutlinedIcon sx={{ fontSize: 36, color: 'var(--th-text-tertiary)' }} />
 }
 
 function FileCard({ file }: { file: MediaFile }) {
@@ -65,34 +90,35 @@ function FileCard({ file }: { file: MediaFile }) {
   const chipSx = {
     height: 18,
     fontSize: 10,
-    fontFamily: "var(--cf-font-text)",
+    fontFamily: 'var(--cf-font-text)',
     fontWeight: 600,
-    backgroundColor: ready ? 'rgba(48,209,88,0.12)' : "var(--th-bg-surface)",
-    color: ready ? '#30d158' : "var(--th-text-tertiary)",
+    backgroundColor: ready ? 'rgba(48,209,88,0.12)' : 'var(--th-bg-surface)',
+    color: ready ? '#30d158' : 'var(--th-text-tertiary)',
     border: '1px solid',
-    borderColor: ready ? 'rgba(48,209,88,0.25)' : "var(--th-border)",
+    borderColor: ready ? 'rgba(48,209,88,0.25)' : 'var(--th-border)',
   }
 
   return (
     <Box
       sx={{
-        backgroundColor: "var(--th-bg-card)",
-        border: "1px solid var(--th-border-card)",
-        borderRadius: "12px",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
+        backgroundColor: 'var(--th-bg-card)',
+        border: '1px solid var(--th-border-card)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <Box
         sx={{
-          width: "100%",
+          position: 'relative',
+          width: '100%',
           height: 140,
-          backgroundColor: "var(--th-bg-surface)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
+          backgroundColor: 'var(--th-bg-surface)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
         <FilePreview file={file} />
@@ -101,27 +127,27 @@ function FileCard({ file }: { file: MediaFile }) {
       <Box sx={{ p: 2, flex: 1 }}>
         <Typography
           sx={{
-            fontFamily: "var(--cf-font-text)",
+            fontFamily: 'var(--cf-font-text)',
             fontSize: 13,
             fontWeight: 500,
-            color: "var(--th-text-primary)",
-            letterSpacing: "-0.12px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            color: 'var(--th-text-primary)',
+            letterSpacing: '-0.12px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
             mb: 0.5,
           }}
           title={file.originalName}
         >
           {file.originalName}
         </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Typography
             sx={{
-              fontFamily: "var(--cf-font-text)",
+              fontFamily: 'var(--cf-font-text)',
               fontSize: 11,
-              color: "var(--th-text-tertiary)",
-              letterSpacing: "-0.12px",
+              color: 'var(--th-text-tertiary)',
+              letterSpacing: '-0.12px',
             }}
           >
             {formatBytes(file.sizeBytes)}
@@ -133,26 +159,104 @@ function FileCard({ file }: { file: MediaFile }) {
   )
 }
 
+type UploadState =
+  | { phase: 'idle' }
+  | { phase: 'uploading'; progress: number; fileName: string }
+
+type ToastState =
+  | { open: false }
+  | { open: true; severity: 'success' | 'error'; message: string }
+
+function validateFile(file: File): string | null {
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    return `Unsupported file type: ${file.type}. Allowed: MP4, JPEG, PNG, GIF, MP3, WAV, OGG.`
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return `File too large. Maximum allowed size is ${formatBytes(MAX_FILE_SIZE_BYTES)}.`
+  }
+  return null
+}
+
 export default function VaultView() {
-  const { data: files, isLoading, error } = useSWR<MediaFile[]>(
+  const { data: files, isLoading, error, mutate } = useSWR<MediaFile[]>(
     '/api/media',
     getMediaFiles,
     { revalidateOnFocus: true }
   )
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadState, setUploadState] = useState<UploadState>({ phase: 'idle' })
+  const [toast, setToast] = useState<ToastState>({ open: false })
+
   const totalBytes = files?.reduce((acc, f) => acc + f.sizeBytes, 0) ?? 0
+
+  function handleUploadClick() {
+    fileInputRef.current?.click()
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!e.target.files) return
+    e.target.value = ''
+
+    if (!file) return
+
+    const validationError = validateFile(file)
+    if (validationError) {
+      setToast({ open: true, severity: 'error', message: validationError })
+      return
+    }
+
+    setUploadState({ phase: 'uploading', progress: 0, fileName: file.name })
+
+    try {
+      const { mediaId, presignedUrl } = await requestUploadUrl({
+        fileName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+      })
+
+      await uploadToS3(presignedUrl, file, (percent) => {
+        setUploadState({ phase: 'uploading', progress: percent, fileName: file.name })
+      })
+
+      await confirmUpload({ mediaId })
+
+      await mutate()
+      setUploadState({ phase: 'idle' })
+      setToast({ open: true, severity: 'success', message: `"${file.name}" uploaded successfully.` })
+    } catch (err) {
+      const apiErr = toApiError(err)
+      setUploadState({ phase: 'idle' })
+      setToast({ open: true, severity: 'error', message: apiErr.message ?? 'Upload failed. Please try again.' })
+    }
+  }
+
+  function handleToastClose() {
+    setToast({ open: false })
+  }
+
+  const isUploading = uploadState.phase === 'uploading'
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 4, flexWrap: "wrap", gap: 2 }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/mp4,image/jpeg,image/png,image/gif,audio/mpeg,audio/wav,audio/ogg"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography
             sx={{
-              fontFamily: "var(--cf-font-display)",
+              fontFamily: 'var(--cf-font-display)',
               fontSize: { xs: 24, sm: 28 },
               fontWeight: 600,
-              color: "var(--th-text-primary)",
-              letterSpacing: "-0.28px",
+              color: 'var(--th-text-primary)',
+              letterSpacing: '-0.28px',
               lineHeight: 1.14,
             }}
           >
@@ -160,10 +264,10 @@ export default function VaultView() {
           </Typography>
           <Typography
             sx={{
-              fontFamily: "var(--cf-font-text)",
+              fontFamily: 'var(--cf-font-text)',
               fontSize: 14,
-              color: "var(--th-text-secondary)",
-              letterSpacing: "-0.224px",
+              color: 'var(--th-text-secondary)',
+              letterSpacing: '-0.224px',
               mt: 0.5,
             }}
           >
@@ -174,42 +278,86 @@ export default function VaultView() {
         <Button
           variant="contained"
           startIcon={<CloudUploadOutlinedIcon />}
+          onClick={handleUploadClick}
+          disabled={isUploading}
           sx={{
-            backgroundColor: "var(--cf-blue)",
-            color: "#ffffff",
-            fontFamily: "var(--cf-font-text)",
+            backgroundColor: 'var(--cf-blue)',
+            color: '#ffffff',
+            fontFamily: 'var(--cf-font-text)',
             fontSize: 14,
             fontWeight: 400,
-            borderRadius: "8px",
+            borderRadius: '8px',
             px: 2,
             py: 1,
-            textTransform: "none",
-            boxShadow: "none",
-            "&:hover": { backgroundColor: "#0077ed", boxShadow: "none" },
+            textTransform: 'none',
+            boxShadow: 'none',
+            '&:hover': { backgroundColor: '#0077ed', boxShadow: 'none' },
+            '&.Mui-disabled': { backgroundColor: 'var(--th-bg-surface)', color: 'var(--th-text-tertiary)' },
           }}
         >
-          Upload
+          {isUploading ? 'Uploading…' : 'Upload'}
         </Button>
       </Box>
 
-      <Box sx={{ ...cardSx, mb: 3, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {isUploading && (
+        <Box sx={{ ...cardSx, mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography
+              sx={{
+                fontFamily: 'var(--cf-font-text)',
+                fontSize: 13,
+                color: 'var(--th-text-primary)',
+                letterSpacing: '-0.12px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '80%',
+              }}
+            >
+              {uploadState.fileName}
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: 'var(--cf-font-text)',
+                fontSize: 13,
+                color: 'var(--th-text-secondary)',
+                letterSpacing: '-0.12px',
+                flexShrink: 0,
+              }}
+            >
+              {uploadState.progress}%
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={uploadState.progress}
+            sx={{
+              borderRadius: 4,
+              backgroundColor: 'var(--th-bg-surface)',
+              '& .MuiLinearProgress-bar': { backgroundColor: 'var(--cf-blue)' },
+            }}
+          />
+        </Box>
+      )}
+
+      <Box sx={{ ...cardSx, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            fontFamily: "var(--cf-font-text)",
+            fontFamily: 'var(--cf-font-text)',
             fontSize: 14,
-            color: "var(--th-text-secondary)",
-            letterSpacing: "-0.224px",
+            color: 'var(--th-text-secondary)',
+            letterSpacing: '-0.224px',
           }}
         >
           Storage used
         </Typography>
         <Typography
           sx={{
-            fontFamily: "var(--cf-font-display)",
+            fontFamily: 'var(--cf-font-display)',
             fontSize: 14,
             fontWeight: 600,
-            color: "var(--th-text-primary)",
-            letterSpacing: "-0.224px",
+            color: 'var(--th-text-primary)',
+            letterSpacing: '-0.224px',
           }}
         >
           {isLoading ? '—' : formatBytes(totalBytes)}
@@ -220,13 +368,13 @@ export default function VaultView() {
         <Box sx={{ ...cardSx, mb: 3 }}>
           <Typography
             sx={{
-              fontFamily: "var(--cf-font-text)",
+              fontFamily: 'var(--cf-font-text)',
               fontSize: 14,
-              color: "#ff4040",
-              letterSpacing: "-0.224px",
+              color: '#ff4040',
+              letterSpacing: '-0.224px',
             }}
           >
-            Failed to load media files. Check that the media service is running.
+            Failed to load media files. Please try again later.
           </Typography>
         </Box>
       )}
@@ -251,33 +399,33 @@ export default function VaultView() {
         <Box
           sx={{
             ...cardSx,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
             py: 10,
             gap: 2,
           }}
         >
-          <InsertDriveFileOutlinedIcon sx={{ fontSize: 48, color: "var(--th-text-tertiary)" }} />
+          <InsertDriveFileOutlinedIcon sx={{ fontSize: 48, color: 'var(--th-text-tertiary)' }} />
           <Typography
             sx={{
-              fontFamily: "var(--cf-font-display)",
+              fontFamily: 'var(--cf-font-display)',
               fontSize: 17,
               fontWeight: 600,
-              color: "var(--th-text-primary)",
-              letterSpacing: "-0.374px",
+              color: 'var(--th-text-primary)',
+              letterSpacing: '-0.374px',
             }}
           >
             No files yet
           </Typography>
           <Typography
             sx={{
-              fontFamily: "var(--cf-font-text)",
+              fontFamily: 'var(--cf-font-text)',
               fontSize: 14,
-              color: "var(--th-text-tertiary)",
-              letterSpacing: "-0.224px",
-              textAlign: "center",
+              color: 'var(--th-text-tertiary)',
+              letterSpacing: '-0.224px',
+              textAlign: 'center',
               maxWidth: 320,
             }}
           >
@@ -285,6 +433,24 @@ export default function VaultView() {
           </Typography>
         </Box>
       ) : null}
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={5000}
+        onClose={handleToastClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {toast.open ? (
+          <Alert
+            onClose={handleToastClose}
+            severity={toast.severity}
+            variant="filled"
+            sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14 }}
+          >
+            {toast.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Box>
   )
 }

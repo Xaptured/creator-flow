@@ -18,7 +18,6 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined'
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined'
 import PermMediaOutlinedIcon from '@mui/icons-material/PermMediaOutlined'
-import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
 import { signOut } from 'next-auth/react'
@@ -38,7 +37,6 @@ const primaryNav: NavItem[] = [
 ]
 
 const secondaryNav: NavItem[] = [
-  { label: 'Platforms', href: '/dashboard/platforms', icon: <LinkOutlinedIcon fontSize="small" /> },
   { label: 'Settings', href: '/dashboard/settings', icon: <SettingsOutlinedIcon fontSize="small" /> },
 ]
 
