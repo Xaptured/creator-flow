@@ -460,15 +460,7 @@ export default function SettingsView() {
           </Box>
         </Grid>
 
-        <Grid item sx={{ display: { xs: 'none', lg: 'flex' }, justifyContent: 'center', px: '0 !important' }}>
-          <Divider orientation="vertical" flexItem sx={{ borderColor: 'var(--th-border)', minHeight: 400 }} />
-        </Grid>
-
-        <Grid item xs={12} sx={{ display: { xs: 'block', lg: 'none' }, py: '0 !important' }}>
-          <Divider sx={{ borderColor: 'var(--th-border)' }} />
-        </Grid>
-
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12} lg>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Typography
               sx={{
