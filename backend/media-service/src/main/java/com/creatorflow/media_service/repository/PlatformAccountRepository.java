@@ -17,5 +17,5 @@ public interface PlatformAccountRepository extends JpaRepository<PlatformAccount
 
     List<PlatformAccount> findAllByOwnerId(UUID ownerId);
 
-    List<PlatformAccount> findAllByExpiresAtBefore(LocalDateTime threshold);
+    List<PlatformAccount> findAllByExpiresAtBetween(LocalDateTime from, LocalDateTime to);
 }

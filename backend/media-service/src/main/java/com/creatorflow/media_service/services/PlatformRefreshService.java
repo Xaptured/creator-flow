@@ -12,8 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -63,15 +61,21 @@ public class PlatformRefreshService {
      * Find all platform accounts expiring within the configured refresh-ahead window
      * and attempt to refresh each one.
      *
-     * The threshold is: now + refreshAheadHours.
-     * Any account with expiresAt < threshold is a candidate for refresh.
+     * The window is: (now - 1 day) to (now + refreshAheadHours).
+     *   - Lower bound (now - 1 day): picks up already-expired accounts (failed previous refresh)
+     *     without going back indefinitely. Accounts expired longer than a day ago are
+     *     considered permanently invalid and excluded — the user must reconnect.
+     *   - Upper bound (now + refreshAheadHours): only tokens approaching expiry are refreshed;
+     *     tokens with plenty of lifetime remaining are excluded, preventing re-processing
+     *     accounts that were just successfully refreshed this run.
      *
      * @return summary of how many accounts were processed and how many failed
      */
-    @Transactional(readOnly = true)
     public RefreshSummary refreshExpiringTokens() {
-        LocalDateTime threshold = LocalDateTime.now().plusHours(refreshAheadHours);
-        List<PlatformAccount> candidates = platformAccountRepository.findAllByExpiresAtBefore(threshold);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime from = now.minusDays(1);
+        LocalDateTime to = now.plusHours(refreshAheadHours);
+        List<PlatformAccount> candidates = platformAccountRepository.findAllByExpiresAtBetween(from, to);
 
         if (candidates.isEmpty()) {
             log.debug("PlatformRefreshService: no accounts expiring within {} hours", refreshAheadHours);

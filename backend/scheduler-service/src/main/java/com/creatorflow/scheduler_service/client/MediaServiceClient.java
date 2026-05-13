@@ -24,7 +24,7 @@ public class MediaServiceClient {
 
     private static final Logger log = LoggerFactory.getLogger(MediaServiceClient.class);
     private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
-    private static final String REFRESH_EXPIRING_PATH = "/creator-flow/media/internal/platforms/refresh-expiring";
+    private static final String REFRESH_EXPIRING_PATH = "http://localhost:8082/creator-flow/media/internal/platforms/refresh-expiring";
 
     private final RestClient restClient;
     private final String internalSecret;

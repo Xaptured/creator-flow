@@ -19,14 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Internal-only endpoints called by sibling services (scheduler-service).
- *
+ * <p>
  * Security model: protected by a shared secret header (X-Internal-Secret)
  * rather than a user JWT. This avoids scheduler-service needing a Keycloak
  * service account while keeping the endpoint inaccessible to external clients.
- *
+ * <p>
  * The secret is injected from ${app.internal.secret} and must be set identically
  * in both media-service and scheduler-service environments.
- *
+ * <p>
  * These endpoints are NOT exposed in the public Swagger UI (operationId hidden).
  * They are excluded from the public security filter chain and protected only by
  * the shared secret check in this controller.
