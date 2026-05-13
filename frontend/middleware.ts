@@ -11,6 +11,12 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl)
   }
 
+  // Refresh token expired - session is unrecoverable, force re-login
+  if (isDashboard && req.auth?.error === "RefreshTokenExpired") {
+    const loginUrl = new URL("/login", req.url)
+    return NextResponse.redirect(loginUrl)
+  }
+
   return NextResponse.next()
 })
 
