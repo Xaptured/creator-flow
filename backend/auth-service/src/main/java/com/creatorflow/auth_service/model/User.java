@@ -37,6 +37,9 @@ public class User implements Serializable {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "timezone", nullable = false, length = 64)
+    private String timezone = "UTC";
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

@@ -15,6 +15,7 @@ import {
   Chip,
   Skeleton,
   Grid,
+  Alert,
 } from '@mui/material'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
@@ -25,8 +26,10 @@ import InstagramIcon from '@mui/icons-material/Instagram'
 import TwitterIcon from '@mui/icons-material/Twitter'
 import { PlatformType } from '@/lib/response/scheduler'
 import { PlatformStatusResponse } from '@/lib/response/platform'
-import { getPlatformStatus } from '@/service/getService'
+import { getPlatformStatus, getUserPreferences } from '@/service/getService'
 import { disconnectPlatform } from '@/service/deleteService'
+import { updateUserPreferences } from '@/service/putService'
+import { toApiError } from '@/service/errorService'
 
 const cardSx = {
   backgroundColor: 'var(--th-bg-card)',
@@ -176,14 +179,7 @@ const statusConfig = {
 
 function PlatformCardSkeleton() {
   return (
-    <Box
-      sx={{
-        ...cardSx,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-      }}
-    >
+    <Box sx={{ ...cardSx, display: 'flex', alignItems: 'center', gap: 2 }}>
       <Skeleton variant="rounded" width={40} height={40} sx={{ borderRadius: '10px', flexShrink: 0 }} />
       <Box sx={{ flex: 1 }}>
         <Skeleton variant="text" width={100} height={20} sx={{ mb: 0.5 }} />
@@ -310,11 +306,7 @@ function PlatformCard({ platformType, raw, disconnecting, onConnect, onDisconnec
               borderRadius: '8px',
               textTransform: 'none',
               whiteSpace: 'nowrap',
-              '&:hover': {
-                borderColor: '#ff4040',
-                color: '#ff4040',
-                backgroundColor: 'rgba(255,64,64,0.06)',
-              },
+              '&:hover': { borderColor: '#ff4040', color: '#ff4040', backgroundColor: 'rgba(255,64,64,0.06)' },
               '&.Mui-disabled': { opacity: 0.5 },
             }}
           >
@@ -354,7 +346,19 @@ export default function SettingsView() {
     { revalidateOnFocus: true }
   )
 
+  const { data: preferences, isLoading: prefsLoading, mutate: mutatePrefs } = useSWR(
+    '/api/user/preferences',
+    getUserPreferences,
+    { revalidateOnFocus: false }
+  )
+
   const [disconnecting, setDisconnecting] = useState<PlatformType | null>(null)
+  const [timezone, setTimezone] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const effectiveTimezone = timezone || preferences?.timezone || 'UTC'
 
   const statusMap = new Map<PlatformType, PlatformStatusResponse>()
   if (statuses) {
@@ -376,6 +380,23 @@ export default function SettingsView() {
       console.error('Failed to disconnect platform', err)
     } finally {
       setDisconnecting(null)
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveSuccess(false)
+    setSaveError(null)
+    try {
+      await updateUserPreferences({ timezone: effectiveTimezone })
+      await mutatePrefs()
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      const apiErr = toApiError(err)
+      setSaveError(apiErr.message ?? 'Failed to save preferences')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -539,24 +560,65 @@ export default function SettingsView() {
 
                 <FormControl fullWidth sx={selectSx}>
                   <InputLabel>Timezone</InputLabel>
-                  <Select
-                    label="Timezone"
-                    defaultValue="UTC"
-                    MenuProps={{ PaperProps: { sx: menuPaperSx } }}
-                  >
-                    {TIMEZONES.map((tz) => (
-                      <MenuItem key={tz} value={tz}>{tz}</MenuItem>
-                    ))}
-                  </Select>
+                  {prefsLoading ? (
+                    <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                  ) : (
+                    <Select
+                      label="Timezone"
+                      value={effectiveTimezone}
+                      onChange={(e) => setTimezone(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: menuPaperSx } }}
+                    >
+                      {TIMEZONES.map((tz) => (
+                        <MenuItem key={tz} value={tz}>{tz}</MenuItem>
+                      ))}
+                    </Select>
+                  )}
                 </FormControl>
               </Box>
             </Box>
+
+            {saveSuccess && (
+              <Alert
+                severity="success"
+                sx={{
+                  fontFamily: 'var(--cf-font-text)',
+                  fontSize: 13,
+                  backgroundColor: 'rgba(48,209,88,0.1)',
+                  color: '#30d158',
+                  border: '1px solid rgba(48,209,88,0.3)',
+                  borderRadius: '8px',
+                  '& .MuiAlert-icon': { color: '#30d158' },
+                }}
+              >
+                Preferences saved.
+              </Alert>
+            )}
+
+            {saveError && (
+              <Alert
+                severity="error"
+                sx={{
+                  fontFamily: 'var(--cf-font-text)',
+                  fontSize: 13,
+                  backgroundColor: 'rgba(255,64,64,0.1)',
+                  color: '#ff4040',
+                  border: '1px solid rgba(255,64,64,0.3)',
+                  borderRadius: '8px',
+                  '& .MuiAlert-icon': { color: '#ff4040' },
+                }}
+              >
+                {saveError}
+              </Alert>
+            )}
 
             <Divider sx={{ borderColor: 'var(--th-border)' }} />
 
             <Box>
               <Button
                 variant="contained"
+                disabled={saving}
+                onClick={handleSave}
                 sx={{
                   backgroundColor: 'var(--cf-blue)',
                   color: '#ffffff',
@@ -569,9 +631,10 @@ export default function SettingsView() {
                   textTransform: 'none',
                   boxShadow: 'none',
                   '&:hover': { backgroundColor: '#0077ed', boxShadow: 'none' },
+                  '&.Mui-disabled': { opacity: 0.5 },
                 }}
               >
-                Save Changes
+                {saving ? 'Saving...' : 'Save Changes'}
               </Button>
             </Box>
           </Box>

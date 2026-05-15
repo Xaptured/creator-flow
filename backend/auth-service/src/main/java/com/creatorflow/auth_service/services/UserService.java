@@ -1,10 +1,13 @@
 package com.creatorflow.auth_service.services;
 
+import com.creatorflow.auth_service.dto.response.UserPreferencesResponse;
+import com.creatorflow.auth_service.exception.UserNotFoundException;
 import com.creatorflow.auth_service.model.User;
 import com.creatorflow.auth_service.repository.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -56,5 +59,28 @@ public class UserService {
     @CacheEvict(value = "userProfiles", key = "#user.id")
     public User updateUser(User user) {
         return userRepository.save(user);
+    }
+
+    /**
+     * Returns the timezone preference for a given Keycloak user.
+     */
+    @Transactional(readOnly = true)
+    public UserPreferencesResponse getPreferences(String keycloakId) {
+        User user = userRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new UserNotFoundException(keycloakId));
+        return new UserPreferencesResponse(user.getTimezone());
+    }
+
+    /**
+     * Updates the timezone for a given Keycloak user and evicts the profile cache.
+     */
+    @Transactional
+    @CacheEvict(value = "userProfiles", key = "#keycloakId")
+    public UserPreferencesResponse updateTimezone(String keycloakId, String timezone) {
+        User user = userRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new UserNotFoundException(keycloakId));
+        user.setTimezone(timezone);
+        userRepository.save(user);
+        return new UserPreferencesResponse(user.getTimezone());
     }
 }

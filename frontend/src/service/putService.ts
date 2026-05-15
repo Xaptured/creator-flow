@@ -1,5 +1,7 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { makeApiError } from '@/lib/response/error';
+import { UpdateUserPreferencesRequest } from '@/lib/request/user';
+import { UserPreferencesResponse } from '@/lib/response/user';
 
 export function uploadToS3(
   presignedUrl: string,
@@ -44,4 +46,14 @@ export async function rescheduleContent(
   await browserAxiosClient.patch(`/api/scheduler/content/${contentId}/reschedule`, {
     scheduledAt,
   });
+}
+
+export async function updateUserPreferences(
+  body: UpdateUserPreferencesRequest
+): Promise<UserPreferencesResponse> {
+  const { data } = await browserAxiosClient.patch<UserPreferencesResponse>(
+    '/api/user/preferences',
+    body
+  );
+  return data;
 }
