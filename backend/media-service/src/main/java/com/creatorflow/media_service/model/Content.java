@@ -12,7 +12,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -41,6 +43,7 @@ public class Content {
     @Column(nullable = false, columnDefinition = "content_status")
     private ContentStatus status;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "platform_targets", columnDefinition = "jsonb")
     private String platformTargets;
 
