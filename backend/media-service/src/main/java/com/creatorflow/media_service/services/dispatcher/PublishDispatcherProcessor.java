@@ -8,6 +8,7 @@ import com.creatorflow.media_service.model.ContentStatus;
 import com.creatorflow.media_service.model.PlatformType;
 import com.creatorflow.media_service.exception.OAuthTokenExchangeException;
 import com.creatorflow.media_service.repository.ContentRepository;
+import com.creatorflow.media_service.repository.IgContainerTrackingRepository;
 import com.creatorflow.media_service.services.PlatformAdapter;
 import com.creatorflow.media_service.services.PlatformAdapterRegistry;
 import com.creatorflow.media_service.services.SnsPublisher;
@@ -31,21 +32,29 @@ import java.util.UUID;
  * Handles transactional processing of a single SQS message from
  * {@code post-dispatcher-queue}.
  *
- * <p>Separated from {@link PublishDispatcherListener} so {@code @Transactional}
- * is applied via a Spring proxy — self-calls from a {@code @Scheduled} method bypass it.</p>
+ * <p>
+ * Separated from {@link PublishDispatcherListener} so {@code @Transactional}
+ * is applied via a Spring proxy — self-calls from a {@code @Scheduled} method
+ * bypass it.
+ * </p>
  *
- * <p>For each {@code CONTENT_READY_TO_PUBLISH} message:</p>
+ * <p>
+ * For each {@code CONTENT_READY_TO_PUBLISH} message:
+ * </p>
  * <ol>
- *   <li>Deserialise payload to get contentId, ownerId, platformTargets.</li>
- *   <li>Look up the content row (owned by ownerId) — skip stale messages.</li>
- *   <li>Resolve the single platform from platformTargets.</li>
- *   <li>Call {@link PlatformAdapter#publish(UUID, Content)} for that platform.</li>
- *   <li>Emit {@code CONTENT_PUBLISHED} or {@code CONTENT_FAILED} to SNS.</li>
- *   <li>Delete SQS message on success; leave it on failure for DLQ retry.</li>
+ * <li>Deserialise payload to get contentId, ownerId, platformTargets.</li>
+ * <li>Look up the content row (owned by ownerId) — skip stale messages.</li>
+ * <li>Resolve the single platform from platformTargets.</li>
+ * <li>Call {@link PlatformAdapter#publish(UUID, Content)} for that
+ * platform.</li>
+ * <li>Emit {@code CONTENT_PUBLISHED} or {@code CONTENT_FAILED} to SNS.</li>
+ * <li>Delete SQS message on success; leave it on failure for DLQ retry.</li>
  * </ol>
  *
- * <p>Scheduler-service's ContentStatusUpdater listens on the result events and
- * transitions the content row status — no HTTP call needed between services.</p>
+ * <p>
+ * Scheduler-service's ContentStatusUpdater listens on the result events and
+ * transitions the content row status — no HTTP call needed between services.
+ * </p>
  */
 @Slf4j
 @Service
@@ -56,16 +65,19 @@ public class PublishDispatcherProcessor {
 
     private final SqsClient sqsClient;
     private final ContentRepository contentRepository;
+    private final IgContainerTrackingRepository igContainerTrackingRepository;
     private final PlatformAdapterRegistry adapterRegistry;
     private final SnsPublisher snsPublisher;
     private final ObjectMapper objectMapper;
 
     public PublishDispatcherProcessor(SqsClient sqsClient,
-                                      ContentRepository contentRepository,
-                                      PlatformAdapterRegistry adapterRegistry,
-                                      SnsPublisher snsPublisher) {
+            ContentRepository contentRepository,
+            IgContainerTrackingRepository igContainerTrackingRepository,
+            PlatformAdapterRegistry adapterRegistry,
+            SnsPublisher snsPublisher) {
         this.sqsClient = sqsClient;
         this.contentRepository = contentRepository;
+        this.igContainerTrackingRepository = igContainerTrackingRepository;
         this.adapterRegistry = adapterRegistry;
         this.snsPublisher = snsPublisher;
         this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -79,7 +91,8 @@ public class PublishDispatcherProcessor {
         } catch (JsonProcessingException e) {
             log.error("publish-dispatcher: failed to deserialise message — messageId: {}, body: {}",
                     sqsMessage.messageId(), sqsMessage.body(), e);
-            // Malformed message — delete to avoid infinite DLQ loop on unrecoverable parse error.
+            // Malformed message — delete to avoid infinite DLQ loop on unrecoverable parse
+            // error.
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
             return;
         }
@@ -118,12 +131,22 @@ public class PublishDispatcherProcessor {
         try {
             PlatformAdapter adapter = adapterRegistry.getAdapter(platform);
             adapter.publish(ownerId, content);
+
+            if (igContainerTrackingRepository.findByContentId(contentId).isPresent()) {
+                log.info(
+                        "publish-dispatcher: Instagram container recorded (async) — contentId: {} — polling job will complete publish",
+                        contentId);
+                deleteMessage(queueUrl, sqsMessage.receiptHandle());
+                return;
+            }
+
             log.info("publish-dispatcher: published to {} — contentId: {}", platform, contentId);
             emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId);
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
         } catch (OAuthTokenExchangeException e) {
             if (e.isInvalidGrant()) {
-                log.error("publish-dispatcher: OAuth token revoked (invalid_grant) — platform: {}, contentId: {}, ownerId: {} — marking FAILED, deleting message",
+                log.error(
+                        "publish-dispatcher: OAuth token revoked (invalid_grant) — platform: {}, contentId: {}, ownerId: {} — marking FAILED, deleting message",
                         platform, contentId, ownerId, e);
                 emitStatusEvent(EVENT_FAILED, contentId, ownerId);
                 deleteMessage(queueUrl, sqsMessage.receiptHandle());
@@ -160,7 +183,8 @@ public class PublishDispatcherProcessor {
 
     private List<PlatformType> deserialisePlatformTargets(String platformTargetsJson) {
         try {
-            return objectMapper.readValue(platformTargetsJson, new TypeReference<List<PlatformType>>() {});
+            return objectMapper.readValue(platformTargetsJson, new TypeReference<List<PlatformType>>() {
+            });
         } catch (JsonProcessingException e) {
             log.error("publish-dispatcher: failed to deserialise platformTargets: {}", platformTargetsJson, e);
             return List.of();

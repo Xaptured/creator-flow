@@ -63,6 +63,7 @@ public class MetaClient {
     // --- Container status values returned by Meta ---
     public static final String CONTAINER_STATUS_FINISHED = "FINISHED";
     public static final String CONTAINER_STATUS_ERROR    = "ERROR";
+    public static final String CONTAINER_STATUS_IN_PROGRESS = "IN_PROGRESS";
 
     // --- OAuth params ---
     private static final String RESPONSE_TYPE           = "code";

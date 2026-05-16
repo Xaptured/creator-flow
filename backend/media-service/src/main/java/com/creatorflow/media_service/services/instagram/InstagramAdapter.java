@@ -14,7 +14,8 @@ import java.util.UUID;
  * PlatformAdapter implementation for Instagram.
  *
  * Thin adapter — delegates to InstagramOAuthService + InstagramPublishService.
- * Registered automatically in PlatformAdapterRegistry via Spring bean collection.
+ * Registered automatically in PlatformAdapterRegistry via Spring bean
+ * collection.
  */
 @Component
 public class InstagramAdapter implements PlatformAdapter {
@@ -25,7 +26,7 @@ public class InstagramAdapter implements PlatformAdapter {
     private final InstagramPublishService instagramPublishService;
 
     public InstagramAdapter(InstagramOAuthService instagramOAuthService,
-                            InstagramPublishService instagramPublishService) {
+            InstagramPublishService instagramPublishService) {
         this.instagramOAuthService = instagramOAuthService;
         this.instagramPublishService = instagramPublishService;
     }
@@ -47,7 +48,9 @@ public class InstagramAdapter implements PlatformAdapter {
 
     @Override
     public void publish(UUID ownerId, Content content) {
-        String result = instagramPublishService.publish(ownerId, content);
-        log.info("InstagramAdapter.publish done: ownerId={} contentId={} result={}", ownerId, content.getId(), result);
+        instagramPublishService.publish(ownerId, content);
+        log.info(
+                "InstagramAdapter.publish step 1 done — container recorded, polling job will complete: ownerId={} contentId={}",
+                ownerId, content.getId());
     }
 }
