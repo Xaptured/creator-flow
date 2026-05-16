@@ -1,6 +1,7 @@
 import NextAuth from "next-auth"
 import Keycloak from "next-auth/providers/keycloak"
 import { JWT } from "next-auth/jwt"
+import { provisionUser } from "@/lib/auth/userPreferencesApi"
 
 // Buffer in seconds - refresh the token this many seconds before it actually expires
 const REFRESH_BUFFER_SECONDS = 60
@@ -51,9 +52,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, account }) {
-      // First sign-in: store tokens and expiry from the provider
+      // First sign-in: store tokens and provision the user row in DB
       if (account) {
-        return {
+        const newToken: JWT = {
           ...token,
           accessToken: account.access_token,
           idToken: account.id_token,
@@ -63,6 +64,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             : Date.now() + (account.expires_in as number) * 1000,
           sub: account.providerAccountId,
         }
+
+        // Provision user in DB - fire-and-forget, must not block login on failure
+        // ownerId = Keycloak UUID (JWT sub); email from OIDC profile claim
+        try {
+          await provisionUser(
+            {
+              ownerId: account.providerAccountId,
+              email: (token.email ?? "") as string,
+            },
+            account.access_token as string
+          )
+        } catch (err) {
+          console.error("[auth] Failed to provision user on first sign-in:", err)
+        }
+
+        return newToken
       }
 
       // Subsequent calls: return token as-is if still valid (with buffer)

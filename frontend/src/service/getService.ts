@@ -2,7 +2,7 @@ import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { MediaFile } from '@/lib/response/media';
 import { ContentStatusResponse, ScheduledPost } from '@/lib/response/scheduler';
 import { PlatformStatusResponse } from '@/lib/response/platform';
-import { UserPreferencesResponse } from '@/lib/response/user';
+import { NichesResponse, UserPreferencesResponse } from '@/lib/response/user';
 
 export async function getMediaFile(mediaId: string): Promise<MediaFile> {
   const { data } = await browserAxiosClient.get<MediaFile>(`/api/media/${mediaId}`);
@@ -33,5 +33,10 @@ export async function getPlatformStatus(): Promise<PlatformStatusResponse[]> {
 
 export async function getUserPreferences(): Promise<UserPreferencesResponse> {
   const { data } = await browserAxiosClient.get<UserPreferencesResponse>('/api/user/preferences');
+  return data;
+}
+
+export async function getNiches(): Promise<NichesResponse> {
+  const { data } = await browserAxiosClient.get<NichesResponse>('/api/user/niches');
   return data;
 }

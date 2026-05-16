@@ -60,6 +60,8 @@ public class RedisConfig {
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory factory) {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                // v2:: prefix ensures stale entries written under NON_FINAL typing are ignored
+                .prefixCacheNameWith("v2::")
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair
                                 .fromSerializer(new StringRedisSerializer()))
@@ -71,6 +73,7 @@ public class RedisConfig {
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
         // User profile cache — 15 minute TTL
         cacheConfigs.put("userProfiles", defaultConfig.entryTtl(Duration.ofMinutes(15)));
+        // Note: niches are loaded at startup via @PostConstruct (in-memory) — no Redis cache needed
 
         return RedisCacheManager.builder(factory)
                 .cacheDefaults(defaultConfig.entryTtl(Duration.ofMinutes(10)))
@@ -80,15 +83,19 @@ public class RedisConfig {
 
     /**
      * Dedicated ObjectMapper for Redis serialization.
-     * Separate from the application ObjectMapper to avoid polluting global config
-     * with default typing (which adds @class fields to every JSON object).
+     * Separate from the application ObjectMapper to avoid polluting global config.
+     *
+     * NON_FINAL is intentionally avoided: Java records are implicitly final and are
+     * excluded under NON_FINAL, which causes "missing type id property '@class'" on
+     * deserialization. EVERYTHING embeds @class for all types including records,
+     * resolving the SerializationException at the cost of slightly larger payloads.
      */
     private ObjectMapper redisObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL,
+                ObjectMapper.DefaultTyping.EVERYTHING,
                 JsonTypeInfo.As.PROPERTY
         );
         return mapper;

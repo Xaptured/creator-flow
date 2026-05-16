@@ -26,7 +26,7 @@ import InstagramIcon from '@mui/icons-material/Instagram'
 import TwitterIcon from '@mui/icons-material/Twitter'
 import { PlatformType } from '@/lib/response/scheduler'
 import { PlatformStatusResponse } from '@/lib/response/platform'
-import { getPlatformStatus, getUserPreferences } from '@/service/getService'
+import { getNiches, getPlatformStatus, getUserPreferences } from '@/service/getService'
 import { disconnectPlatform } from '@/service/deleteService'
 import { updateUserPreferences } from '@/service/putService'
 import { toApiError } from '@/service/errorService'
@@ -93,11 +93,6 @@ const sectionHeadSx = {
   letterSpacing: '-0.2px',
   mb: 2.5,
 }
-
-const CONTENT_NICHES = [
-  'Gaming', 'Photography', 'Tech', 'Lifestyle', 'Travel',
-  'Fitness', 'Food', 'Education', 'Business', 'Art & Design', 'Other',
-]
 
 const TIMEZONES = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
@@ -352,13 +347,25 @@ export default function SettingsView() {
     { revalidateOnFocus: false }
   )
 
+  const { data: nichesData, isLoading: nichesLoading } = useSWR(
+    '/api/user/niches',
+    getNiches,
+    { revalidateOnFocus: false }
+  )
+
   const [disconnecting, setDisconnecting] = useState<PlatformType | null>(null)
   const [timezone, setTimezone] = useState<string>('')
+  const [displayName, setDisplayName] = useState<string>('')
+  const [niche, setNiche] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Derive effective values: local state takes priority, fall back to loaded preferences
   const effectiveTimezone = timezone || preferences?.timezone || 'UTC'
+  const effectiveDisplayName = displayName !== '' ? displayName : (preferences?.displayName ?? '')
+  const effectiveNiche = niche !== '' ? niche : (preferences?.niche ?? '')
+  const niches = nichesData?.niches ?? []
 
   const statusMap = new Map<PlatformType, PlatformStatusResponse>()
   if (statuses) {
@@ -388,7 +395,11 @@ export default function SettingsView() {
     setSaveSuccess(false)
     setSaveError(null)
     try {
-      await updateUserPreferences({ timezone: effectiveTimezone })
+      await updateUserPreferences({
+        timezone: effectiveTimezone,
+        displayName: effectiveDisplayName || null,
+        niche: effectiveNiche || null,
+      })
       await mutatePrefs()
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
@@ -498,33 +509,48 @@ export default function SettingsView() {
             <Box sx={cardSx}>
               <Typography sx={sectionHeadSx}>Profile</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Display Name"
-                  placeholder="Your creator name"
-                  variant="outlined"
-                  sx={inputSx}
-                />
-                <Box>
+
+                {/* Display Name — editable, takes priority over Keycloak name in sidebar */}
+                {prefsLoading ? (
+                  <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                ) : (
                   <TextField
                     fullWidth
-                    label="Email"
+                    label="Display Name"
+                    placeholder="Your creator name"
                     variant="outlined"
-                    disabled
-                    sx={{
-                      ...inputSx,
-                      '& .MuiOutlinedInput-root': {
-                        ...inputSx['& .MuiOutlinedInput-root'],
-                        '&.Mui-disabled': {
-                          backgroundColor: 'var(--th-bg-surface)',
-                          '& fieldset': { borderColor: 'var(--th-border)' },
-                        },
-                      },
-                      '& .MuiInputBase-input.Mui-disabled': {
-                        WebkitTextFillColor: 'var(--th-text-tertiary)',
-                      },
-                    }}
+                    value={effectiveDisplayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    sx={inputSx}
                   />
+                )}
+
+                {/* Email — read-only, sourced from identity provider */}
+                <Box>
+                  {prefsLoading ? (
+                    <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      variant="outlined"
+                      value={preferences?.email ?? ''}
+                      disabled
+                      sx={{
+                        ...inputSx,
+                        '& .MuiOutlinedInput-root': {
+                          ...inputSx['& .MuiOutlinedInput-root'],
+                          '&.Mui-disabled': {
+                            backgroundColor: 'var(--th-bg-surface)',
+                            '& fieldset': { borderColor: 'var(--th-border)' },
+                          },
+                        },
+                        '& .MuiInputBase-input.Mui-disabled': {
+                          WebkitTextFillColor: 'var(--th-text-tertiary)',
+                        },
+                      }}
+                    />
+                  )}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.75 }}>
                     <LockOutlinedIcon sx={{ fontSize: 11, color: 'var(--th-text-tertiary)' }} />
                     <Typography
@@ -535,10 +561,11 @@ export default function SettingsView() {
                         letterSpacing: '-0.12px',
                       }}
                     >
-                      Managed by Keycloak. Change it there if needed.
+                      Your email is managed by your identity provider and cannot be changed here.
                     </Typography>
                   </Box>
                 </Box>
+
               </Box>
             </Box>
 
@@ -547,15 +574,21 @@ export default function SettingsView() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FormControl fullWidth sx={selectSx}>
                   <InputLabel>Content Niche</InputLabel>
-                  <Select
-                    label="Content Niche"
-                    defaultValue=""
-                    MenuProps={{ PaperProps: { sx: menuPaperSx } }}
-                  >
-                    {CONTENT_NICHES.map((n) => (
-                      <MenuItem key={n} value={n}>{n}</MenuItem>
-                    ))}
-                  </Select>
+                  {nichesLoading || prefsLoading ? (
+                    <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                  ) : (
+                    <Select
+                      label="Content Niche"
+                      value={effectiveNiche}
+                      onChange={(e) => setNiche(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: menuPaperSx } }}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {niches.map((n) => (
+                        <MenuItem key={n} value={n}>{n}</MenuItem>
+                      ))}
+                    </Select>
+                  )}
                 </FormControl>
 
                 <FormControl fullWidth sx={selectSx}>

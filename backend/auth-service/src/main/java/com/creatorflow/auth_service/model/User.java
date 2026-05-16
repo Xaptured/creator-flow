@@ -40,6 +40,12 @@ public class User implements Serializable {
     @Column(name = "timezone", nullable = false, length = 64)
     private String timezone = "UTC";
 
+    @Column(name = "display_name", length = 255)
+    private String displayName;
+
+    @Column(name = "niche", length = 100)
+    private String niche;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

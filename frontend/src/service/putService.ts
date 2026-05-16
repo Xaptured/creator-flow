@@ -1,6 +1,6 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { makeApiError } from '@/lib/response/error';
-import { UpdateUserPreferencesRequest } from '@/lib/request/user';
+import { UserPreferencesRequest } from '@/lib/request/user';
 import { UserPreferencesResponse } from '@/lib/response/user';
 
 export function uploadToS3(
@@ -48,8 +48,10 @@ export async function rescheduleContent(
   });
 }
 
+// ownerId is intentionally excluded from the browser-side type.
+// The BFF injects ownerId from session.userId before forwarding to auth-service.
 export async function updateUserPreferences(
-  body: UpdateUserPreferencesRequest
+  body: Omit<UserPreferencesRequest, 'ownerId'>
 ): Promise<UserPreferencesResponse> {
   const { data } = await browserAxiosClient.patch<UserPreferencesResponse>(
     '/api/user/preferences',
