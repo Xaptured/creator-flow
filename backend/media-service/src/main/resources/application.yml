@@ -120,3 +120,6 @@ app:
     secret: ${INTERNAL_SERVICE_SECRET}
   token-refresh:
     refresh-ahead-hours: ${TOKEN_REFRESH_AHEAD_HOURS:12}
+  ig-container:
+    poll-interval-seconds: ${IG_CONTAINER_POLL_INTERVAL_SECONDS}
+    timeout-minutes: ${IG_CONTAINER_TIMEOUT_MINUTES}
