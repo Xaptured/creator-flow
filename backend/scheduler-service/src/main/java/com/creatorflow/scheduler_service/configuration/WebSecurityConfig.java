@@ -1,6 +1,7 @@
 package com.creatorflow.scheduler_service.configuration;
 
 import com.creatorflow.scheduler_service.filter.OwnerIdValidationFilter;
+import com.creatorflow.scheduler_service.filter.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -36,11 +37,14 @@ public class WebSecurityConfig {
 
     private final CorsConfigurationSource corsConfigurationSource;
     private final OwnerIdValidationFilter ownerIdValidationFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
-                             OwnerIdValidationFilter ownerIdValidationFilter) {
+                             OwnerIdValidationFilter ownerIdValidationFilter,
+                             RateLimitFilter rateLimitFilter) {
         this.corsConfigurationSource = corsConfigurationSource;
         this.ownerIdValidationFilter = ownerIdValidationFilter;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -54,6 +58,7 @@ public class WebSecurityConfig {
                 .anyRequest().authenticated());
         http.oauth2ResourceServer(oauth2 -> oauth2.jwt(
                 jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+        http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(ownerIdValidationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.creatorflow.media_service.dto.response.ErrorResponse;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
@@ -24,7 +26,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
@@ -32,15 +34,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
     private static final String RATE_LIMITED_PATH = "/upload-url";
+    static final long MAX_BUCKET_ENTRIES = 100_000L;
+    static final long BUCKET_TTL_HOURS = 1L;
 
     private final RateLimitProperties properties;
     private final JwtDecoder jwtDecoder;
-    private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final Cache<String, Bucket> buckets;
     private final ObjectMapper objectMapper;
 
     public RateLimitFilter(RateLimitProperties properties, JwtDecoder jwtDecoder) {
         this.properties = properties;
         this.jwtDecoder = jwtDecoder;
+        this.buckets = Caffeine.newBuilder()
+                .expireAfterAccess(BUCKET_TTL_HOURS, TimeUnit.HOURS)
+                .maximumSize(MAX_BUCKET_ENTRIES)
+                .build();
         this.objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -58,7 +66,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String userId = resolveUserId(request);
-        Bucket bucket = buckets.computeIfAbsent(userId, this::newBucket);
+        Bucket bucket = buckets.get(userId, this::newBucket);
 
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
 
