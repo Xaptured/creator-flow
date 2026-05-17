@@ -16,7 +16,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -47,22 +47,23 @@ public class Content {
     @Column(name = "platform_targets", columnDefinition = "jsonb")
     private String platformTargets;
 
+    // Stored as TIMESTAMP WITH TIME ZONE — always represents a UTC instant.
     @Column(name = "scheduled_at")
-    private LocalDateTime scheduledAt;
+    private Instant scheduledAt;
 
     @Column(name = "media_file_id")
     private UUID mediaFileId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdAt = Instant.now();
+        updatedAt = Instant.now();
         if (status == null) {
             status = ContentStatus.DRAFT;
         }
@@ -70,6 +71,6 @@ public class Content {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();
     }
 }

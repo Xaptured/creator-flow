@@ -1,0 +1,3 @@
+ALTER TABLE content
+    ALTER COLUMN scheduled_at TYPE TIMESTAMP WITH TIME ZONE
+        USING scheduled_at AT TIME ZONE 'UTC';

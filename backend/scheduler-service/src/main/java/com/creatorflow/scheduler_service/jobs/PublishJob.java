@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -52,7 +52,7 @@ public class PublishJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
+        Instant now = Instant.now();
         List<Content> dueContent = contentRepository.findDueContent(ContentStatus.SCHEDULED, now);
 
         if (dueContent.isEmpty()) {
