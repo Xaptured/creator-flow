@@ -6,7 +6,7 @@ import { UserPreferencesResponse } from '@/lib/response/user';
 export function uploadToS3(
   presignedUrl: string,
   file: File,
-  onProgress: (percent: number) => void
+  onProgress: (percent: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();

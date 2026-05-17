@@ -110,4 +110,26 @@ public class MediaController {
             @Parameter(description = "Owner UUID — injected from session by BFF") @RequestParam UUID ownerId) {
         return ResponseEntity.ok(mediaFileService.getMediaFile(id, ownerId));
     }
+
+    @Operation(
+            summary = "Delete a media file from the vault",
+            description = "Deletes the media file from S3 and removes the database record. " +
+                    "Ownership enforced — returns 404 if the file belongs to a different user. " +
+                    "ownerId must be injected server-side by the BFF."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Media file deleted successfully"),
+            @ApiResponse(responseCode = "404", description = "Media file not found or wrong owner",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<Void> deleteMedia(
+            @Parameter(description = "Media file UUID") @PathVariable UUID id,
+            @Parameter(description = "Owner UUID — injected from session by BFF") @RequestParam UUID ownerId) {
+        mediaFileService.deleteMedia(id, ownerId);
+        return ResponseEntity.noContent().build();
+    }
 }
