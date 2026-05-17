@@ -15,6 +15,7 @@ import {
   Chip,
   Skeleton,
   Grid,
+  Alert,
 } from '@mui/material'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
@@ -25,8 +26,10 @@ import InstagramIcon from '@mui/icons-material/Instagram'
 import TwitterIcon from '@mui/icons-material/Twitter'
 import { PlatformType } from '@/lib/response/scheduler'
 import { PlatformStatusResponse } from '@/lib/response/platform'
-import { getPlatformStatus } from '@/service/getService'
+import { getNiches, getPlatformStatus, getUserPreferences } from '@/service/getService'
 import { disconnectPlatform } from '@/service/deleteService'
+import { updateUserPreferences } from '@/service/putService'
+import { toApiError } from '@/service/errorService'
 
 const cardSx = {
   backgroundColor: 'var(--th-bg-card)',
@@ -90,11 +93,6 @@ const sectionHeadSx = {
   letterSpacing: '-0.2px',
   mb: 2.5,
 }
-
-const CONTENT_NICHES = [
-  'Gaming', 'Photography', 'Tech', 'Lifestyle', 'Travel',
-  'Fitness', 'Food', 'Education', 'Business', 'Art & Design', 'Other',
-]
 
 const TIMEZONES = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
@@ -176,14 +174,7 @@ const statusConfig = {
 
 function PlatformCardSkeleton() {
   return (
-    <Box
-      sx={{
-        ...cardSx,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-      }}
-    >
+    <Box sx={{ ...cardSx, display: 'flex', alignItems: 'center', gap: 2 }}>
       <Skeleton variant="rounded" width={40} height={40} sx={{ borderRadius: '10px', flexShrink: 0 }} />
       <Box sx={{ flex: 1 }}>
         <Skeleton variant="text" width={100} height={20} sx={{ mb: 0.5 }} />
@@ -310,11 +301,7 @@ function PlatformCard({ platformType, raw, disconnecting, onConnect, onDisconnec
               borderRadius: '8px',
               textTransform: 'none',
               whiteSpace: 'nowrap',
-              '&:hover': {
-                borderColor: '#ff4040',
-                color: '#ff4040',
-                backgroundColor: 'rgba(255,64,64,0.06)',
-              },
+              '&:hover': { borderColor: '#ff4040', color: '#ff4040', backgroundColor: 'rgba(255,64,64,0.06)' },
               '&.Mui-disabled': { opacity: 0.5 },
             }}
           >
@@ -354,7 +341,31 @@ export default function SettingsView() {
     { revalidateOnFocus: true }
   )
 
+  const { data: preferences, isLoading: prefsLoading, mutate: mutatePrefs } = useSWR(
+    '/api/user/preferences',
+    getUserPreferences,
+    { revalidateOnFocus: false }
+  )
+
+  const { data: nichesData, isLoading: nichesLoading } = useSWR(
+    '/api/user/niches',
+    getNiches,
+    { revalidateOnFocus: false }
+  )
+
   const [disconnecting, setDisconnecting] = useState<PlatformType | null>(null)
+  const [timezone, setTimezone] = useState<string>('')
+  const [displayName, setDisplayName] = useState<string>('')
+  const [niche, setNiche] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Derive effective values: local state takes priority, fall back to loaded preferences
+  const effectiveTimezone = timezone || preferences?.timezone || 'UTC'
+  const effectiveDisplayName = displayName !== '' ? displayName : (preferences?.displayName ?? '')
+  const effectiveNiche = niche !== '' ? niche : (preferences?.niche ?? '')
+  const niches = nichesData?.niches ?? []
 
   const statusMap = new Map<PlatformType, PlatformStatusResponse>()
   if (statuses) {
@@ -376,6 +387,27 @@ export default function SettingsView() {
       console.error('Failed to disconnect platform', err)
     } finally {
       setDisconnecting(null)
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveSuccess(false)
+    setSaveError(null)
+    try {
+      await updateUserPreferences({
+        timezone: effectiveTimezone,
+        displayName: effectiveDisplayName || null,
+        niche: effectiveNiche || null,
+      })
+      await mutatePrefs()
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      const apiErr = toApiError(err)
+      setSaveError(apiErr.message ?? 'Failed to save preferences')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -477,33 +509,48 @@ export default function SettingsView() {
             <Box sx={cardSx}>
               <Typography sx={sectionHeadSx}>Profile</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Display Name"
-                  placeholder="Your creator name"
-                  variant="outlined"
-                  sx={inputSx}
-                />
-                <Box>
+
+                {/* Display Name — editable, takes priority over Keycloak name in sidebar */}
+                {prefsLoading ? (
+                  <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                ) : (
                   <TextField
                     fullWidth
-                    label="Email"
+                    label="Display Name"
+                    placeholder="Your creator name"
                     variant="outlined"
-                    disabled
-                    sx={{
-                      ...inputSx,
-                      '& .MuiOutlinedInput-root': {
-                        ...inputSx['& .MuiOutlinedInput-root'],
-                        '&.Mui-disabled': {
-                          backgroundColor: 'var(--th-bg-surface)',
-                          '& fieldset': { borderColor: 'var(--th-border)' },
-                        },
-                      },
-                      '& .MuiInputBase-input.Mui-disabled': {
-                        WebkitTextFillColor: 'var(--th-text-tertiary)',
-                      },
-                    }}
+                    value={effectiveDisplayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    sx={inputSx}
                   />
+                )}
+
+                {/* Email — read-only, sourced from identity provider */}
+                <Box>
+                  {prefsLoading ? (
+                    <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      variant="outlined"
+                      value={preferences?.email ?? ''}
+                      disabled
+                      sx={{
+                        ...inputSx,
+                        '& .MuiOutlinedInput-root': {
+                          ...inputSx['& .MuiOutlinedInput-root'],
+                          '&.Mui-disabled': {
+                            backgroundColor: 'var(--th-bg-surface)',
+                            '& fieldset': { borderColor: 'var(--th-border)' },
+                          },
+                        },
+                        '& .MuiInputBase-input.Mui-disabled': {
+                          WebkitTextFillColor: 'var(--th-text-tertiary)',
+                        },
+                      }}
+                    />
+                  )}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.75 }}>
                     <LockOutlinedIcon sx={{ fontSize: 11, color: 'var(--th-text-tertiary)' }} />
                     <Typography
@@ -514,10 +561,11 @@ export default function SettingsView() {
                         letterSpacing: '-0.12px',
                       }}
                     >
-                      Managed by Keycloak. Change it there if needed.
+                      Your email is managed by your identity provider and cannot be changed here.
                     </Typography>
                   </Box>
                 </Box>
+
               </Box>
             </Box>
 
@@ -526,37 +574,84 @@ export default function SettingsView() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FormControl fullWidth sx={selectSx}>
                   <InputLabel>Content Niche</InputLabel>
-                  <Select
-                    label="Content Niche"
-                    defaultValue=""
-                    MenuProps={{ PaperProps: { sx: menuPaperSx } }}
-                  >
-                    {CONTENT_NICHES.map((n) => (
-                      <MenuItem key={n} value={n}>{n}</MenuItem>
-                    ))}
-                  </Select>
+                  {nichesLoading || prefsLoading ? (
+                    <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                  ) : (
+                    <Select
+                      label="Content Niche"
+                      value={effectiveNiche}
+                      onChange={(e) => setNiche(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: menuPaperSx } }}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {niches.map((n) => (
+                        <MenuItem key={n} value={n}>{n}</MenuItem>
+                      ))}
+                    </Select>
+                  )}
                 </FormControl>
 
                 <FormControl fullWidth sx={selectSx}>
                   <InputLabel>Timezone</InputLabel>
-                  <Select
-                    label="Timezone"
-                    defaultValue="UTC"
-                    MenuProps={{ PaperProps: { sx: menuPaperSx } }}
-                  >
-                    {TIMEZONES.map((tz) => (
-                      <MenuItem key={tz} value={tz}>{tz}</MenuItem>
-                    ))}
-                  </Select>
+                  {prefsLoading ? (
+                    <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                  ) : (
+                    <Select
+                      label="Timezone"
+                      value={effectiveTimezone}
+                      onChange={(e) => setTimezone(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: menuPaperSx } }}
+                    >
+                      {TIMEZONES.map((tz) => (
+                        <MenuItem key={tz} value={tz}>{tz}</MenuItem>
+                      ))}
+                    </Select>
+                  )}
                 </FormControl>
               </Box>
             </Box>
+
+            {saveSuccess && (
+              <Alert
+                severity="success"
+                sx={{
+                  fontFamily: 'var(--cf-font-text)',
+                  fontSize: 13,
+                  backgroundColor: 'rgba(48,209,88,0.1)',
+                  color: '#30d158',
+                  border: '1px solid rgba(48,209,88,0.3)',
+                  borderRadius: '8px',
+                  '& .MuiAlert-icon': { color: '#30d158' },
+                }}
+              >
+                Preferences saved.
+              </Alert>
+            )}
+
+            {saveError && (
+              <Alert
+                severity="error"
+                sx={{
+                  fontFamily: 'var(--cf-font-text)',
+                  fontSize: 13,
+                  backgroundColor: 'rgba(255,64,64,0.1)',
+                  color: '#ff4040',
+                  border: '1px solid rgba(255,64,64,0.3)',
+                  borderRadius: '8px',
+                  '& .MuiAlert-icon': { color: '#ff4040' },
+                }}
+              >
+                {saveError}
+              </Alert>
+            )}
 
             <Divider sx={{ borderColor: 'var(--th-border)' }} />
 
             <Box>
               <Button
                 variant="contained"
+                disabled={saving}
+                onClick={handleSave}
                 sx={{
                   backgroundColor: 'var(--cf-blue)',
                   color: '#ffffff',
@@ -569,9 +664,10 @@ export default function SettingsView() {
                   textTransform: 'none',
                   boxShadow: 'none',
                   '&:hover': { backgroundColor: '#0077ed', boxShadow: 'none' },
+                  '&.Mui-disabled': { opacity: 0.5 },
                 }}
               >
-                Save Changes
+                {saving ? 'Saving...' : 'Save Changes'}
               </Button>
             </Box>
           </Box>

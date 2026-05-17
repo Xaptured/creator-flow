@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS display_name VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS niche        VARCHAR(100);

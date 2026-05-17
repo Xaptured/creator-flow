@@ -17,8 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -61,11 +59,11 @@ public class SchedulerService {
             throw new IllegalArgumentException("at least one platformTarget is required");
         }
 
+        // Keep scheduledAt as an Instant throughout — no LocalDateTime conversion.
+        // The DB column is now TIMESTAMP WITH TIME ZONE so Hibernate maps Instant natively.
         Instant scheduledAt = request.getScheduledAt() != null
                 ? request.getScheduledAt()
                 : Instant.now();
-
-        LocalDateTime scheduledAtLocal = LocalDateTime.ofInstant(scheduledAt, ZoneOffset.UTC);
 
         List<ScheduleContentResponse> responses = new ArrayList<>();
 
@@ -77,7 +75,7 @@ public class SchedulerService {
             content.setDescription(request.getDescription());
             content.setMediaFileId(request.getMediaFileId());
             content.setPlatformTargets(serialise(List.of(platform)));
-            content.setScheduledAt(scheduledAtLocal);
+            content.setScheduledAt(scheduledAt);
             content.setStatus(ContentStatus.SCHEDULED);
 
             try {
@@ -123,7 +121,8 @@ public class SchedulerService {
             );
         }
 
-        content.setScheduledAt(LocalDateTime.ofInstant(newScheduledAt, ZoneOffset.UTC));
+        // Store the Instant directly — no LocalDateTime conversion needed.
+        content.setScheduledAt(newScheduledAt);
         if (status == ContentStatus.FAILED) {
             content.setStatus(ContentStatus.SCHEDULED);
         }
@@ -137,12 +136,13 @@ public class SchedulerService {
         Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
                 .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));
 
-        Instant scheduledAt = content.getScheduledAt() != null
-                ? content.getScheduledAt().toInstant(ZoneOffset.UTC) : null;
-        Instant updatedAt = content.getUpdatedAt() != null
-                ? content.getUpdatedAt().toInstant(ZoneOffset.UTC) : null;
-
-        return new ContentStatusResponse(content.getId(), content.getStatus().name(), scheduledAt, updatedAt);
+        // scheduledAt and updatedAt are already Instant — assign directly.
+        return new ContentStatusResponse(
+                content.getId(),
+                content.getStatus().name(),
+                content.getScheduledAt(),
+                content.getUpdatedAt()
+        );
     }
 
     private String serialise(Object value) {

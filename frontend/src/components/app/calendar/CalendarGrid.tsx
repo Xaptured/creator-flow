@@ -2,6 +2,7 @@
 
 import { Box, Typography } from '@mui/material'
 import { ScheduledPost } from '@/lib/response/scheduler'
+import { getLocalDateParts } from '@/lib/timezone/timezoneUtils'
 import CalendarCell from './CalendarCell'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -11,6 +12,7 @@ interface Props {
   year: number
   month: number
   events: ScheduledPost[]
+  userTimezone: string
   onEventDrop: (contentId: string, newDate: Date) => void
   onDayClick: (date: Date) => void
 }
@@ -20,14 +22,14 @@ export default function CalendarGrid({
   year,
   month,
   events,
+  userTimezone,
   onEventDrop,
   onDayClick,
 }: Props) {
   const eventsByDay = new Map<number, ScheduledPost[]>()
   for (const post of events) {
-    const d = new Date(post.scheduledAt)
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      const day = d.getDate()
+    const { year: y, month: m, day } = getLocalDateParts(post.scheduledAt, userTimezone)
+    if (y === year && m === month) {
       if (!eventsByDay.has(day)) eventsByDay.set(day, [])
       eventsByDay.get(day)!.push(post)
     }
@@ -98,6 +100,7 @@ export default function CalendarGrid({
               isLastRow={isLastRow}
               isLastCol={isLastCol}
               events={dayEvents}
+              userTimezone={userTimezone}
               onDrop={onEventDrop}
               onDayClick={onDayClick}
             />

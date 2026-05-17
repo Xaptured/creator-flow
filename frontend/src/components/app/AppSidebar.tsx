@@ -72,6 +72,27 @@ export default function AppSidebar({ userName, userEmail, userImage }: AppSideba
     minWidth: 36,
   })
 
+  const renderNavItem = (item: NavItem) => {
+    const active = isActive(item.href)
+    return (
+      // Wrap with Next.js Link for prefetch, then render MUI button inside
+      <Link key={item.href} href={item.href} prefetch style={{ textDecoration: 'none' }}>
+        <ListItemButton sx={navItemSx(active)}>
+          <ListItemIcon sx={iconSx(active)}>{item.icon}</ListItemIcon>
+          <ListItemText
+            primary={item.label}
+            primaryTypographyProps={{
+              fontFamily: 'var(--cf-font-text)',
+              fontSize: 14,
+              fontWeight: active ? 600 : 400,
+              letterSpacing: '-0.224px',
+            }}
+          />
+        </ListItemButton>
+      </Link>
+    )
+  }
+
   return (
     <Box
       component="nav"
@@ -128,54 +149,12 @@ export default function AppSidebar({ userName, userEmail, userImage }: AppSideba
       <Divider sx={{ borderColor: 'var(--th-border)', mx: 2, mb: 1 }} />
 
       <List disablePadding sx={{ px: 0, flex: 1 }}>
-        {primaryNav.map((item) => {
-          const active = isActive(item.href)
-          return (
-            <ListItemButton
-              key={item.href}
-              component={Link}
-              href={item.href}
-              sx={navItemSx(active)}
-            >
-              <ListItemIcon sx={iconSx(active)}>{item.icon}</ListItemIcon>
-              <ListItemText
-                primary={item.label}
-                primaryTypographyProps={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: 14,
-                  fontWeight: active ? 600 : 400,
-                  letterSpacing: '-0.224px',
-                }}
-              />
-            </ListItemButton>
-          )
-        })}
+        {primaryNav.map(renderNavItem)}
       </List>
 
       <Divider sx={{ borderColor: 'var(--th-border)', mx: 2, my: 1 }} />
       <List disablePadding sx={{ px: 0 }}>
-        {secondaryNav.map((item) => {
-          const active = isActive(item.href)
-          return (
-            <ListItemButton
-              key={item.href}
-              component={Link}
-              href={item.href}
-              sx={navItemSx(active)}
-            >
-              <ListItemIcon sx={iconSx(active)}>{item.icon}</ListItemIcon>
-              <ListItemText
-                primary={item.label}
-                primaryTypographyProps={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: 14,
-                  fontWeight: active ? 600 : 400,
-                  letterSpacing: '-0.224px',
-                }}
-              />
-            </ListItemButton>
-          )
-        })}
+        {secondaryNav.map(renderNavItem)}
       </List>
 
       <Divider sx={{ borderColor: 'var(--th-border)', mx: 2, mt: 1 }} />

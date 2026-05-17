@@ -4,20 +4,23 @@ import { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useRouter } from 'next/navigation'
 import { ScheduledPost } from '@/lib/response/scheduler'
+import { toZonedTime } from 'date-fns-tz'
+import { toLocalDatetimeLocal } from '@/lib/timezone/timezoneUtils'
 import CalendarEvent from './CalendarEvent'
 
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const START_HOUR = 0
 const END_HOUR = 23
-const SLOTS_PER_HOUR = 2 // 30-min slots
+const SLOTS_PER_HOUR = 2
 const TOTAL_SLOTS = (END_HOUR - START_HOUR + 1) * SLOTS_PER_HOUR
-const CELL_HEIGHT = 40 // px per 30-min slot (min; expands with content)
+const CELL_HEIGHT = 40
 
 interface Props {
   year: number
   month: number
   weekStartDate: Date
   events: ScheduledPost[]
+  userTimezone: string
   onEventDrop: (contentId: string, newDate: Date) => void
   onDayClick: (date: Date) => void
 }
@@ -42,6 +45,7 @@ function slotLabel(slotIdx: number): string {
 export default function CalendarWeekView({
   weekStartDate,
   events,
+  userTimezone,
   onEventDrop,
   onDayClick,
 }: Props) {
@@ -52,16 +56,16 @@ export default function CalendarWeekView({
 
   const eventsByDaySlot = new Map<string, ScheduledPost[]>()
   for (const post of events) {
-    const d = new Date(post.scheduledAt)
+    const zonedDate = toZonedTime(new Date(post.scheduledAt), userTimezone)
     const dayIdx = weekDates.findIndex(
       (wd) =>
-        wd.getFullYear() === d.getFullYear() &&
-        wd.getMonth() === d.getMonth() &&
-        wd.getDate() === d.getDate()
+        wd.getFullYear() === zonedDate.getFullYear() &&
+        wd.getMonth() === zonedDate.getMonth() &&
+        wd.getDate() === zonedDate.getDate()
     )
     if (dayIdx === -1) continue
-    const hour = d.getHours()
-    const minute = d.getMinutes()
+    const hour = zonedDate.getHours()
+    const minute = zonedDate.getMinutes()
     if (hour < START_HOUR || hour > END_HOUR) continue
     const slotIdx = (hour - START_HOUR) * SLOTS_PER_HOUR + (minute >= 30 ? 1 : 0)
     const key = `${dayIdx}-${slotIdx}`
@@ -88,9 +92,7 @@ export default function CalendarWeekView({
   }
 
   function handleEventClick(post: ScheduledPost) {
-    const d = new Date(post.scheduledAt)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
+    const localIso = toLocalDatetimeLocal(post.scheduledAt, userTimezone)
     router.push(`/dashboard/composer?date=${localIso}`)
   }
 
@@ -130,10 +132,10 @@ export default function CalendarWeekView({
             >
               <Typography
                 sx={{
-                  fontFamily: "var(--cf-font-text)",
+                  fontFamily: 'var(--cf-font-text)',
                   fontSize: 11,
                   fontWeight: 600,
-                  color: "var(--th-text-tertiary)",
+                  color: 'var(--th-text-tertiary)',
                   letterSpacing: '0.5px',
                   textTransform: 'uppercase',
                   mb: 0.25,
@@ -155,10 +157,10 @@ export default function CalendarWeekView({
               >
                 <Typography
                   sx={{
-                    fontFamily: "var(--cf-font-text)",
+                    fontFamily: 'var(--cf-font-text)',
                     fontSize: 13,
                     fontWeight: isToday ? 700 : 400,
-                    color: isToday ? '#ffffff' : "var(--th-text-secondary)",
+                    color: isToday ? '#ffffff' : 'var(--th-text-secondary)',
                   }}
                 >
                   {date.getDate()}
@@ -197,9 +199,9 @@ export default function CalendarWeekView({
                 {label && (
                   <Typography
                     sx={{
-                      fontFamily: "var(--cf-font-text)",
+                      fontFamily: 'var(--cf-font-text)',
                       fontSize: 10,
-                      color: "var(--th-text-tertiary)",
+                      color: 'var(--th-text-tertiary)',
                       letterSpacing: '-0.1px',
                       whiteSpace: 'nowrap',
                     }}

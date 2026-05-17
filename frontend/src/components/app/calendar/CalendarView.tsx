@@ -9,9 +9,10 @@ import ChevronLeftOutlinedIcon from '@mui/icons-material/ChevronLeftOutlined'
 import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined'
 import Link from 'next/link'
 import { ScheduledPost, PlatformType } from '@/lib/response/scheduler'
-import { getScheduledContent } from '@/service/getService'
+import { getScheduledContent, getUserPreferences } from '@/service/getService'
 import { rescheduleContent } from '@/service/putService'
 import { toApiError } from '@/service/errorService'
+import { toUtcIso } from '@/lib/timezone/timezoneUtils'
 import CalendarGrid from './CalendarGrid'
 import CalendarWeekView from './CalendarWeekView'
 
@@ -54,6 +55,13 @@ export default function CalendarView() {
   const [activePlatforms, setActivePlatforms] = useState<Set<PlatformType>>(new Set(PLATFORMS))
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
 
+  const { data: preferences } = useSWR(
+    '/api/user/preferences',
+    getUserPreferences,
+    { revalidateOnFocus: false }
+  )
+  const userTimezone = preferences?.timezone ?? 'UTC'
+
   const {
     data: allPosts = [],
     mutate,
@@ -86,7 +94,9 @@ export default function CalendarView() {
   async function handleEventDrop(contentId: string, newDate: Date) {
     setRescheduleError(null)
     const previous = allPosts
-    const newIso = newDate.toISOString()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const localDatetimeStr = `${newDate.getFullYear()}-${pad(newDate.getMonth() + 1)}-${pad(newDate.getDate())}T${pad(newDate.getHours())}:${pad(newDate.getMinutes())}`
+    const newIso = toUtcIso(localDatetimeStr, userTimezone)
     mutate(
       allPosts.map((p) => (p.id === contentId ? { ...p, scheduledAt: newIso } : p)),
       false
@@ -119,10 +129,10 @@ export default function CalendarView() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography
           sx={{
-            fontFamily: "var(--cf-font-display)",
+            fontFamily: 'var(--cf-font-display)',
             fontSize: { xs: 24, sm: 28 },
             fontWeight: 600,
-            color: "var(--th-text-primary)",
+            color: 'var(--th-text-primary)',
             letterSpacing: '-0.28px',
             lineHeight: 1.14,
           }}
@@ -140,13 +150,13 @@ export default function CalendarView() {
                 onClick={() => togglePlatform(p)}
                 size="small"
                 sx={{
-                  backgroundColor: active ? 'rgba(0, 113, 227, 0.15)' : "var(--th-bg-surface)",
-                  color: active ? "var(--cf-blue)" : "var(--th-text-secondary)",
-                  fontFamily: "var(--cf-font-text)",
+                  backgroundColor: active ? 'rgba(0, 113, 227, 0.15)' : 'var(--th-bg-surface)',
+                  color: active ? 'var(--cf-blue)' : 'var(--th-text-secondary)',
+                  fontFamily: 'var(--cf-font-text)',
                   fontSize: 12,
                   fontWeight: active ? 600 : 400,
                   border: '1px solid',
-                  borderColor: active ? 'rgba(0,113,227,0.3)' : "var(--th-border)",
+                  borderColor: active ? 'rgba(0,113,227,0.3)' : 'var(--th-border)',
                   cursor: 'pointer',
                   '&:hover': { opacity: 0.85 },
                 }}
@@ -161,10 +171,10 @@ export default function CalendarView() {
             size="small"
             sx={{
               '& .MuiToggleButton-root': {
-                fontFamily: "var(--cf-font-text)",
+                fontFamily: 'var(--cf-font-text)',
                 fontSize: 12,
-                color: "var(--th-text-secondary)",
-                borderColor: "var(--th-border)",
+                color: 'var(--th-text-secondary)',
+                borderColor: 'var(--th-border)',
                 textTransform: 'none',
                 px: 1.5,
                 py: 0.5,
@@ -188,7 +198,7 @@ export default function CalendarView() {
             sx={{
               backgroundColor: 'var(--cf-blue)',
               color: '#ffffff',
-              fontFamily: "var(--cf-font-text)",
+              fontFamily: 'var(--cf-font-text)',
               fontSize: 14,
               fontWeight: 400,
               borderRadius: '8px',
@@ -215,7 +225,7 @@ export default function CalendarView() {
             borderRadius: '8px',
           }}
         >
-          <Typography sx={{ fontFamily: "var(--cf-font-text)", fontSize: 13, color: '#ff4040' }}>
+          <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: '#ff4040' }}>
             {rescheduleError}
           </Typography>
         </Box>
@@ -227,7 +237,7 @@ export default function CalendarView() {
           alignItems: 'center',
           gap: 2,
           mb: 2,
-          backgroundColor: "var(--th-bg-card)",
+          backgroundColor: 'var(--th-bg-card)',
           border: '1px solid var(--th-border-card)',
           borderRadius: '12px',
           px: 2,
@@ -245,8 +255,8 @@ export default function CalendarView() {
             alignItems: 'center',
             p: 0.5,
             borderRadius: '6px',
-            color: "var(--th-text-secondary)",
-            '&:hover': { backgroundColor: "var(--th-bg-surface)", color: "var(--th-text-primary)" },
+            color: 'var(--th-text-secondary)',
+            '&:hover': { backgroundColor: 'var(--th-bg-surface)', color: 'var(--th-text-primary)' },
           }}
         >
           <ChevronLeftOutlinedIcon fontSize="small" />
@@ -254,10 +264,10 @@ export default function CalendarView() {
 
         <Typography
           sx={{
-            fontFamily: "var(--cf-font-display)",
+            fontFamily: 'var(--cf-font-display)',
             fontSize: 17,
             fontWeight: 600,
-            color: "var(--th-text-primary)",
+            color: 'var(--th-text-primary)',
             letterSpacing: '-0.374px',
             flex: 1,
             textAlign: 'center',
@@ -277,8 +287,8 @@ export default function CalendarView() {
             alignItems: 'center',
             p: 0.5,
             borderRadius: '6px',
-            color: "var(--th-text-secondary)",
-            '&:hover': { backgroundColor: "var(--th-bg-surface)", color: "var(--th-text-primary)" },
+            color: 'var(--th-text-secondary)',
+            '&:hover': { backgroundColor: 'var(--th-bg-surface)', color: 'var(--th-text-primary)' },
           }}
         >
           <ChevronRightOutlinedIcon fontSize="small" />
@@ -289,7 +299,7 @@ export default function CalendarView() {
         <Box
           sx={{
             height: 400,
-            backgroundColor: "var(--th-bg-card)",
+            backgroundColor: 'var(--th-bg-card)',
             border: '1px solid var(--th-border-card)',
             borderRadius: '12px',
             display: 'flex',
@@ -297,8 +307,8 @@ export default function CalendarView() {
             justifyContent: 'center',
           }}
         >
-          <Typography sx={{ fontFamily: "var(--cf-font-text)", fontSize: 13, color: "var(--th-text-tertiary)" }}>
-            Loading…
+          <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: 'var(--th-text-tertiary)' }}>
+            Loading...
           </Typography>
         </Box>
       )}
@@ -309,6 +319,7 @@ export default function CalendarView() {
           year={year}
           month={month}
           events={posts}
+          userTimezone={userTimezone}
           onEventDrop={handleEventDrop}
           onDayClick={handleDayClick}
         />
@@ -320,6 +331,7 @@ export default function CalendarView() {
           month={month}
           weekStartDate={weekStartDate}
           events={posts}
+          userTimezone={userTimezone}
           onEventDrop={handleEventDrop}
           onDayClick={handleDayClick}
         />

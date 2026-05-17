@@ -9,7 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,9 +31,7 @@ public class ScheduledContentSummary {
         s.id = content.getId();
         s.title = content.getTitle();
         s.status = content.getStatus();
-        s.scheduledAt = content.getScheduledAt() != null
-                ? content.getScheduledAt().toInstant(ZoneOffset.UTC)
-                : null;
+        s.scheduledAt = content.getScheduledAt();
 
         try {
             List<PlatformType> targets = objectMapper.readValue(
