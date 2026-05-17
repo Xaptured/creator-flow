@@ -138,6 +138,17 @@ public class MediaFileService {
         return toResponse(mediaFile, null);
     }
 
+    @Transactional
+    public void deleteMedia(UUID mediaId, UUID ownerId) {
+        MediaFile mediaFile = mediaFileRepository
+                .findByIdAndOwnerId(mediaId, ownerId)
+                .orElseThrow(() -> new MediaNotFoundException(mediaId));
+
+        s3Service.deleteObject(mediaFile.getS3Key());
+
+        mediaFileRepository.delete(mediaFile);
+    }
+
     @Transactional(readOnly = true)
     public MediaFileResponse getMediaFile(UUID mediaId, UUID ownerId) {
         MediaFile mediaFile = mediaFileRepository

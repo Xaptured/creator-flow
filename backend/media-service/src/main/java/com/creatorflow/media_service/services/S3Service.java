@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -66,6 +67,14 @@ public class S3Service {
         return s3Presigner.presignGetObject(r -> r
                 .signatureDuration(expiry)
                 .getObjectRequest(getObjectRequest));
+    }
+
+    public void deleteObject(String s3Key) {
+        log.info("Deleting S3 object: key={}", s3Key.substring(0, Math.min(s3Key.length(), 30)));
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(awsProperties.getBucketName())
+                .key(s3Key)
+                .build());
     }
 
     public byte[] fetchObject(String s3Key) {
