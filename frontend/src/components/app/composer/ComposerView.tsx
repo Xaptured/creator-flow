@@ -159,7 +159,8 @@ export default function ComposerView() {
     }
   }
 
-  const canSubmit = title.trim().length > 0 && selectedPlatforms.size > 0 && !submitting
+  const preferencesLoaded = preferences !== undefined
+  const canSubmit = title.trim().length > 0 && selectedPlatforms.size > 0 && !submitting && preferencesLoaded
 
   return (
     <Box>
@@ -288,7 +289,7 @@ export default function ComposerView() {
               sx={inputSx}
               InputLabelProps={{ shrink: true }}
             />
-            {userTimezone !== 'UTC' && (
+            {preferences?.timezone && preferences.timezone !== 'UTC' && (
               <Typography
                 sx={{
                   fontFamily: 'var(--cf-font-text)',
@@ -298,7 +299,7 @@ export default function ComposerView() {
                   mt: 0.75,
                 }}
               >
-                Times are in {userTimezone}
+                Times are in {preferences.timezone}
               </Typography>
             )}
           </Box>
