@@ -1,5 +1,6 @@
 package com.creatorflow.media_service.configuration;
 
+import com.creatorflow.media_service.filter.OwnerIdValidationFilter;
 import com.creatorflow.media_service.filter.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,11 +45,14 @@ public class WebSecurityConfig {
 
     private final CorsConfigurationSource corsConfigurationSource;
     private final RateLimitFilter rateLimitFilter;
+    private final OwnerIdValidationFilter ownerIdValidationFilter;
 
     public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
-            RateLimitFilter rateLimitFilter) {
+            RateLimitFilter rateLimitFilter,
+            OwnerIdValidationFilter ownerIdValidationFilter) {
         this.corsConfigurationSource = corsConfigurationSource;
         this.rateLimitFilter = rateLimitFilter;
+        this.ownerIdValidationFilter = ownerIdValidationFilter;
     }
 
     @Bean
@@ -65,6 +69,7 @@ public class WebSecurityConfig {
         http.oauth2ResourceServer(
                 oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
         http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(ownerIdValidationFilter, RateLimitFilter.class);
 
         return http.build();
     }

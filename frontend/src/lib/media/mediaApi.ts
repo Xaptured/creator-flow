@@ -47,3 +47,14 @@ export async function listMediaFiles(
   });
   return data;
 }
+
+export async function deleteMediaFile(
+  mediaId: string,
+  ownerId: string,
+  accessToken: string
+): Promise<void> {
+  const url = buildUrl('media', '/v1.0/api/media/:id', { id: mediaId }, { ownerId });
+  await axiosClient.delete(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
