@@ -19,14 +19,14 @@
     "next": "14.2.35",
     "next-auth": "^5.0.0-beta.25",
     "pino": "^9.6.0",
-    "react": "^18",
-    "react-dom": "^18",
+    "react": "^19",
+    "react-dom": "^19",
     "swr": "^2.4.1"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
