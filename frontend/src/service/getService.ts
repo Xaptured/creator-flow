@@ -1,6 +1,6 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { MediaFile } from '@/lib/response/media';
-import { ContentStatusResponse, ScheduledPost } from '@/lib/response/scheduler';
+import { ContentStatusResponse, ScheduledContentDetail, ScheduledPost } from '@/lib/response/scheduler';
 import { PlatformStatusResponse } from '@/lib/response/platform';
 import { NichesResponse, UserPreferencesResponse } from '@/lib/response/user';
 
@@ -22,6 +22,13 @@ export async function getScheduledContent(): Promise<ScheduledPost[]> {
 export async function getContentStatus(contentId: string): Promise<ContentStatusResponse> {
   const { data } = await browserAxiosClient.get<ContentStatusResponse>(
     `/api/scheduler/content/${contentId}/status`
+  );
+  return data;
+}
+
+export async function getScheduledContentDetail(contentId: string): Promise<ScheduledContentDetail> {
+  const { data } = await browserAxiosClient.get<ScheduledContentDetail>(
+    `/api/scheduler/content/${contentId}`
   );
   return data;
 }

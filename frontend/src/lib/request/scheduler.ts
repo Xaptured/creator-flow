@@ -23,3 +23,13 @@ export interface RescheduleContentRequest {
   /** ISO-8601 string — new scheduled time. */
   scheduledAt: string
 }
+
+export interface UpdateContentRequest {
+  ownerId: string
+  title: string
+  description?: string
+  mediaFileId?: string
+  platformTargets: PlatformType[]
+  /** ISO-8601 string. */
+  scheduledAt?: string
+}

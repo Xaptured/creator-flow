@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useRouter } from 'next/navigation'
 import { ScheduledPost } from '@/lib/response/scheduler'
-import { toLocalDatetimeLocal } from '@/lib/timezone/timezoneUtils'
 import CalendarEvent from './CalendarEvent'
 
 interface Props {
@@ -28,7 +27,6 @@ export default function CalendarCell({
   isLastRow,
   isLastCol,
   events,
-  userTimezone,
   onDrop,
   onDayClick,
 }: Props) {
@@ -57,8 +55,7 @@ export default function CalendarCell({
   }
 
   function handleEventClick(post: ScheduledPost) {
-    const localIso = toLocalDatetimeLocal(post.scheduledAt, userTimezone)
-    router.push(`/dashboard/composer?date=${localIso}`)
+    router.push(`/dashboard/composer?editId=${post.id}`)
   }
 
   return (

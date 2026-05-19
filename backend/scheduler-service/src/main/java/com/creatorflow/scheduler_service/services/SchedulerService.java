@@ -1,8 +1,10 @@
 package com.creatorflow.scheduler_service.services;
 
 import com.creatorflow.scheduler_service.dto.request.ScheduleContentRequest;
+import com.creatorflow.scheduler_service.dto.request.UpdateContentRequest;
 import com.creatorflow.scheduler_service.dto.response.ContentStatusResponse;
 import com.creatorflow.scheduler_service.dto.response.ScheduleContentResponse;
+import com.creatorflow.scheduler_service.dto.response.ScheduledContentDetail;
 import com.creatorflow.scheduler_service.dto.response.ScheduledContentSummary;
 import com.creatorflow.scheduler_service.exception.ContentNotFoundException;
 import com.creatorflow.scheduler_service.model.Content;
@@ -33,20 +35,6 @@ public class SchedulerService {
     private final ContentRowSaver contentRowSaver;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Persist one content row per platform target, each in its own independent transaction.
-     *
-     * <p>Each platform is saved via {@link ContentRowSaver#save} which runs in a
-     * {@code REQUIRES_NEW} transaction, so a DB failure for one platform does not roll
-     * back rows already committed for other platforms. The response always contains one
-     * entry per requested platform — successes carry {@code contentId} and
-     * {@code status = SCHEDULED}; failures carry {@code status = FAILED_TO_SCHEDULE}
-     * and an {@code error} message.</p>
-     *
-     * <p>If {@code scheduledAt} is null, defaults to now — making each row immediately
-     * eligible for the next PublishJob poll cycle (instant publish).
-     * If it's a future time, Quartz picks them up when the time arrives.</p>
-     */
     public List<ScheduleContentResponse> schedule(ScheduleContentRequest request) {
         if (request.getOwnerId() == null) {
             throw new IllegalArgumentException("ownerId is required");
@@ -59,8 +47,6 @@ public class SchedulerService {
             throw new IllegalArgumentException("at least one platformTarget is required");
         }
 
-        // Keep scheduledAt as an Instant throughout — no LocalDateTime conversion.
-        // The DB column is now TIMESTAMP WITH TIME ZONE so Hibernate maps Instant natively.
         Instant scheduledAt = request.getScheduledAt() != null
                 ? request.getScheduledAt()
                 : Instant.now();
@@ -101,13 +87,54 @@ public class SchedulerService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public ScheduledContentDetail getContent(UUID contentId, UUID ownerId) {
+        Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
+                .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));
+        return ScheduledContentDetail.from(content, objectMapper);
+    }
+
     /**
-     * Update scheduled_at for a SCHEDULED content row and reset status if needed.
-     *
-     * <p>Rejects if status is PUBLISHING or PUBLISHED — those rows are already in-flight
-     * or done. Because Quartz uses a poll-based approach (queries DB every N seconds),
-     * no per-row trigger needs to be cancelled. Updating scheduled_at in the DB is
-     * sufficient — the next poll cycle picks it up.</p>
+     * Update all mutable fields of a content row.
+     * Rejected if status is PUBLISHING or PUBLISHED.
+     * A FAILED row is reset to SCHEDULED on successful update.
+     */
+    @Transactional
+    public ScheduledContentDetail updateContent(UUID contentId, UUID ownerId, UpdateContentRequest request) {
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            throw new IllegalArgumentException("title is required");
+        }
+        if (request.getPlatformTargets() == null || request.getPlatformTargets().isEmpty()) {
+            throw new IllegalArgumentException("at least one platformTarget is required");
+        }
+
+        Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
+                .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));
+
+        ContentStatus status = content.getStatus();
+        if (status == ContentStatus.PUBLISHING || status == ContentStatus.PUBLISHED) {
+            throw new IllegalStateException("Cannot update content with status: " + status);
+        }
+
+        content.setTitle(request.getTitle());
+        content.setDescription(request.getDescription());
+        content.setMediaFileId(request.getMediaFileId());
+        content.setPlatformTargets(serialise(request.getPlatformTargets()));
+        if (request.getScheduledAt() != null) {
+            content.setScheduledAt(request.getScheduledAt());
+        }
+        if (status == ContentStatus.FAILED) {
+            content.setStatus(ContentStatus.SCHEDULED);
+        }
+
+        Content saved = contentRepository.save(content);
+        log.info("Content updated — contentId: {}, ownerId: {}", contentId, ownerId);
+        return ScheduledContentDetail.from(saved, objectMapper);
+    }
+
+    /**
+     * Update scheduled_at for a SCHEDULED content row.
+     * Rejects if status is PUBLISHING or PUBLISHED.
      */
     @Transactional
     public void reschedule(UUID contentId, UUID ownerId, Instant newScheduledAt) {
@@ -116,12 +143,9 @@ public class SchedulerService {
 
         ContentStatus status = content.getStatus();
         if (status == ContentStatus.PUBLISHING || status == ContentStatus.PUBLISHED) {
-            throw new IllegalStateException(
-                    "Cannot reschedule content with status: " + status
-            );
+            throw new IllegalStateException("Cannot reschedule content with status: " + status);
         }
 
-        // Store the Instant directly — no LocalDateTime conversion needed.
         content.setScheduledAt(newScheduledAt);
         if (status == ContentStatus.FAILED) {
             content.setStatus(ContentStatus.SCHEDULED);
@@ -136,7 +160,6 @@ public class SchedulerService {
         Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
                 .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));
 
-        // scheduledAt and updatedAt are already Instant — assign directly.
         return new ContentStatusResponse(
                 content.getId(),
                 content.getStatus().name(),
