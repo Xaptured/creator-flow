@@ -13,8 +13,14 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import PermMediaOutlinedIcon from '@mui/icons-material/PermMediaOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
 import TagOutlinedIcon from '@mui/icons-material/TagOutlined'
@@ -25,6 +31,7 @@ import { MediaFile } from '@/lib/response/media'
 import { getPlatformStatus, getScheduledContentDetail, getUserPreferences } from '@/service/getService'
 import { scheduleContent } from '@/service/postService'
 import { updateScheduledContent } from '@/service/putService'
+import { deleteScheduledContent } from '@/service/deleteService'
 import { toApiError } from '@/service/errorService'
 import { toLocalDatetimeLocal, toUtcIso } from '@/lib/timezone/timezoneUtils'
 import VaultPickerDialog from './VaultPickerDialog'
@@ -114,6 +121,9 @@ export default function ComposerView() {
   const [editLoadError, setEditLoadError] = useState<string | null>(null)
   const [editLoading, setEditLoading] = useState(isEditMode)
   const [postStatus, setPostStatus] = useState<ContentStatus | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Fetch and pre-fill data when in edit mode.
   // Re-runs when preferences loads so we can convert scheduledAt to the user's timezone.
@@ -171,6 +181,21 @@ export default function ComposerView() {
     setMediaFileName(file.originalName)
   }
 
+  async function handleDelete() {
+    if (!editId) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteScheduledContent(editId)
+      setDeleteDialogOpen(false)
+      router.push('/dashboard/calendar')
+    } catch (err) {
+      const apiErr = toApiError(err)
+      setDeleteError(apiErr.message ?? 'Failed to delete post')
+      setDeleting(false)
+    }
+  }
+
   async function handleSubmit(publishNow: boolean) {
     if (!title.trim()) return
     if (selectedPlatforms.size === 0) return
@@ -223,6 +248,8 @@ export default function ComposerView() {
   const isFailed = isEditMode && postStatus === ContentStatus.FAILED
   // PUBLISHED/PUBLISHING: read-only, no save. FAILED/SCHEDULED/DRAFT: editable.
   const canSubmit = title.trim().length > 0 && selectedPlatforms.size > 0 && !submitting && preferencesLoaded && editReady && !isPublished
+  // Delete allowed in edit mode for any status except PUBLISHING/PUBLISHED
+  const canDelete = isEditMode && !isPublished && !deleting && editReady
 
   if (isEditMode && editLoading) {
     return (
@@ -471,9 +498,66 @@ export default function ComposerView() {
                 Publish Now
               </Button>
             )}
+            {isEditMode && (
+              <Button
+                variant="outlined"
+                fullWidth
+                disabled={!canDelete}
+                onClick={() => { setDeleteError(null); setDeleteDialogOpen(true) }}
+                startIcon={<DeleteOutlineOutlinedIcon sx={{ fontSize: 16 }} />}
+                sx={{ borderColor: 'rgba(255,64,64,0.4)', color: '#ff4040', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', '&:hover': { borderColor: '#ff4040', backgroundColor: 'rgba(255,64,64,0.06)' }, '&.Mui-disabled': { borderColor: 'rgba(255,64,64,0.2)', color: 'rgba(255,64,64,0.4)' } }}
+              >
+                Delete Post
+              </Button>
+            )}
           </Box>
         </Box>
       </Box>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !deleting && setDeleteDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            backgroundColor: 'var(--th-bg-card)',
+            border: '1px solid var(--th-border-card)',
+            borderRadius: '12px',
+            color: 'var(--th-text-primary)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontFamily: 'var(--cf-font-display)', fontSize: 17, fontWeight: 600, color: 'var(--th-text-primary)', letterSpacing: '-0.2px' }}>
+          Delete post?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', letterSpacing: '-0.224px' }}>
+            This will permanently delete the post and cannot be undone.
+          </DialogContentText>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2, fontFamily: 'var(--cf-font-text)', fontSize: 13, backgroundColor: 'rgba(255,64,64,0.1)', color: '#ff4040', border: '1px solid rgba(255,64,64,0.3)', borderRadius: '8px', '& .MuiAlert-icon': { color: '#ff4040' } }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={deleting}
+            sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', textTransform: 'none', borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            disabled={deleting}
+            variant="contained"
+            sx={{ backgroundColor: '#ff4040', color: '#fff', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { backgroundColor: '#e03030', boxShadow: 'none' }, '&.Mui-disabled': { backgroundColor: 'rgba(255,64,64,0.4)', color: 'rgba(255,255,255,0.6)' } }}
+          >
+            {deleting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

@@ -3,11 +3,13 @@ package com.creatorflow.auth_service.services;
 import com.creatorflow.auth_service.dto.request.ProvisionUserRequest;
 import com.creatorflow.auth_service.dto.request.UserPreferencesRequest;
 import com.creatorflow.auth_service.dto.response.NichesResponse;
+import com.creatorflow.auth_service.dto.response.TimezonesResponse;
 import com.creatorflow.auth_service.dto.response.UserMeResponse;
 import com.creatorflow.auth_service.dto.response.UserPreferencesResponse;
 import com.creatorflow.auth_service.exception.UserNotFoundException;
 import com.creatorflow.auth_service.model.User;
 import com.creatorflow.auth_service.repository.NicheRepository;
+import com.creatorflow.auth_service.repository.TimezoneRepository;
 import com.creatorflow.auth_service.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.cache.annotation.CacheEvict;
@@ -23,6 +25,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final NicheRepository nicheRepository;
+    private final TimezoneRepository timezoneRepository;
 
     /**
      * In-memory niche list loaded once at startup.
@@ -31,9 +34,18 @@ public class UserService {
      */
     private NichesResponse cachedNiches;
 
-    public UserService(UserRepository userRepository, NicheRepository nicheRepository) {
+    /**
+     * In-memory timezone list loaded once at startup.
+     * Same rationale as niches — static reference data, no Redis needed.
+     * Restart the service to pick up DB changes to the timezones table.
+     */
+    private TimezonesResponse cachedTimezones;
+
+    public UserService(UserRepository userRepository, NicheRepository nicheRepository,
+                       TimezoneRepository timezoneRepository) {
         this.userRepository = userRepository;
         this.nicheRepository = nicheRepository;
+        this.timezoneRepository = timezoneRepository;
     }
 
     @PostConstruct
@@ -43,6 +55,11 @@ public class UserService {
                 .map(com.creatorflow.auth_service.model.Niche::getName)
                 .toList();
         cachedNiches = new NichesResponse(names);
+        List<String> tzNames = timezoneRepository.findByActiveTrueOrderByDisplayOrderAsc()
+                .stream()
+                .map(com.creatorflow.auth_service.model.Timezone::getName)
+                .toList();
+        cachedTimezones = new TimezonesResponse(tzNames);
     }
 
     /**
@@ -120,6 +137,14 @@ public class UserService {
      */
     public NichesResponse getNiches() {
         return cachedNiches;
+    }
+
+    /**
+     * Returns the cached timezone list loaded at startup from the DB.
+     * No Redis involved — avoids serialization issues for this static data.
+     */
+    public TimezonesResponse getTimezones() {
+        return cachedTimezones;
     }
 
     private UserMeResponse toMeResponse(User user) {

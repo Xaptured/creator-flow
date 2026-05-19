@@ -30,6 +30,6 @@ export interface UpdateContentRequest {
   description?: string
   mediaFileId?: string
   platformTargets: PlatformType[]
-  /** ISO-8601 string. */
+  /** ISO-8601 string — new scheduled time. */
   scheduledAt?: string
 }

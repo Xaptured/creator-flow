@@ -155,6 +155,25 @@ public class SchedulerService {
                 contentId, ownerId, newScheduledAt);
     }
 
+    /**
+     * Delete a content row.
+     * Rejected if status is PUBLISHING or PUBLISHED — the publish pipeline is already in flight.
+     * 404 returned for unknown content or ownership mismatch (avoids leaking existence).
+     */
+    @Transactional
+    public void deleteContent(UUID contentId, UUID ownerId) {
+        Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
+                .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));
+
+        ContentStatus status = content.getStatus();
+        if (status == ContentStatus.PUBLISHING || status == ContentStatus.PUBLISHED) {
+            throw new IllegalStateException("Cannot delete content with status: " + status);
+        }
+
+        contentRepository.delete(content);
+        log.info("Content deleted — contentId: {}, ownerId: {}", contentId, ownerId);
+    }
+
     @Transactional(readOnly = true)
     public ContentStatusResponse getStatus(UUID contentId, UUID ownerId) {
         Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)

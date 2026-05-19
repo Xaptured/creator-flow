@@ -1,10 +1,16 @@
 'use client'
 
-import { Box, Typography, Grid, Chip } from '@mui/material'
+import { useState, useEffect } from 'react'
+import { Box, Typography, Grid, Chip, Alert, AlertTitle, IconButton, Link } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
+import CloseIcon from '@mui/icons-material/Close'
+import useSWR from 'swr'
+import { getPlatformStatus, getUserPreferences } from '@/service/getService'
+import { PlatformStatusResponse } from '@/lib/response/platform'
+import { UserPreferencesResponse } from '@/lib/response/user'
 
 const cardSx = {
   backgroundColor: 'var(--th-bg-card)',
@@ -31,7 +37,76 @@ const contentGaps = [
   "You haven't posted in 30+ days — connect a platform to track gaps.",
 ]
 
+const alertSx = {
+  borderRadius: '10px',
+  fontFamily: 'var(--cf-font-text)',
+  fontSize: 14,
+  mb: 2,
+  '& .MuiAlert-message': { width: '100%' },
+}
+
+function noPlatformConnected(statuses: PlatformStatusResponse[]): boolean {
+  return statuses.every((s) => !s.connected)
+}
+
+/** Resolves a timezone string to its canonical IANA name via the browser's Intl API.
+ *  This handles legacy aliases (e.g. Asia/Calcutta → Asia/Kolkata) transparently,
+ *  so comparisons don't produce false positives for equivalent timezones.
+ */
+function canonicalTz(tz: string): string {
+  try {
+    return Intl.DateTimeFormat(undefined, { timeZone: tz }).resolvedOptions().timeZone
+  } catch {
+    return tz
+  }
+}
+
+function detectTimezoneMismatch(savedTimezone: string): boolean {
+  try {
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return canonicalTz(browserTz) !== canonicalTz(savedTimezone)
+  } catch {
+    return false
+  }
+}
+
 export default function DashboardHome() {
+  const [platformAlertDismissed, setPlatformAlertDismissed] = useState(false)
+  const [tzAlertDismissed, setTzAlertDismissed] = useState(false)
+
+  const { data: platformStatuses } = useSWR<PlatformStatusResponse[]>(
+    '/api/platforms/status',
+    getPlatformStatus,
+    { revalidateOnFocus: false }
+  )
+
+  const { data: userPrefs } = useSWR<UserPreferencesResponse>(
+    '/api/user/preferences',
+    getUserPreferences,
+    { revalidateOnFocus: false }
+  )
+
+  // Re-show the timezone alert if the saved timezone changes
+  useEffect(() => {
+    setTzAlertDismissed(false)
+  }, [userPrefs?.timezone])
+
+  const showNoPlatformAlert =
+    !platformAlertDismissed &&
+    platformStatuses != null &&
+    noPlatformConnected(platformStatuses)
+
+  const browserTz =
+    typeof window !== 'undefined'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : null
+
+  const showTzAlert =
+    !tzAlertDismissed &&
+    userPrefs?.timezone != null &&
+    browserTz != null &&
+    detectTimezoneMismatch(userPrefs.timezone)
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
@@ -59,6 +134,69 @@ export default function DashboardHome() {
           Overview of your content performance across all platforms.
         </Typography>
       </Box>
+
+      {showNoPlatformAlert && (
+        <Alert
+          severity="warning"
+          sx={{
+            ...alertSx,
+            backgroundColor: 'rgba(255, 159, 10, 0.1)',
+            border: '1px solid rgba(255, 159, 10, 0.3)',
+            color: 'var(--th-text-primary)',
+            '& .MuiAlert-icon': { color: '#ff9f0a' },
+          }}
+          action={
+            <IconButton
+              size="small"
+              onClick={() => setPlatformAlertDismissed(true)}
+              sx={{ color: 'var(--th-text-tertiary)' }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          <AlertTitle sx={{ fontFamily: 'var(--cf-font-display)', fontWeight: 600, fontSize: 14 }}>
+            No platform connected
+          </AlertTitle>
+          You haven&apos;t connected any social media platform yet. Connect one in{' '}
+          <Link href="/dashboard/settings" underline="always" sx={{ color: '#ff9f0a', fontWeight: 600 }}>
+            Settings
+          </Link>{' '}
+          to start tracking your content performance.
+        </Alert>
+      )}
+
+      {showTzAlert && (
+        <Alert
+          severity="info"
+          sx={{
+            ...alertSx,
+            backgroundColor: 'rgba(0, 113, 227, 0.08)',
+            border: '1px solid rgba(0, 113, 227, 0.25)',
+            color: 'var(--th-text-primary)',
+            '& .MuiAlert-icon': { color: 'var(--cf-blue)' },
+          }}
+          action={
+            <IconButton
+              size="small"
+              onClick={() => setTzAlertDismissed(true)}
+              sx={{ color: 'var(--th-text-tertiary)' }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          <AlertTitle sx={{ fontFamily: 'var(--cf-font-display)', fontWeight: 600, fontSize: 14 }}>
+            Timezone mismatch detected
+          </AlertTitle>
+          Your browser&apos;s timezone is <strong>{browserTz}</strong>, but your account is set to{' '}
+          <strong>{userPrefs?.timezone}</strong>. Was this intentional? You can update it in{' '}
+          <Link href="/dashboard/settings" underline="always" sx={{ color: 'var(--cf-blue)', fontWeight: 600 }}>
+            Settings
+          </Link>
+          .
+        </Alert>
+      )}
 
       <Grid container spacing={2} sx={{ mb: 4 }}>
         {statCards.map((stat) => (

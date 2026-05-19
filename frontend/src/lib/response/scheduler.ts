@@ -59,6 +59,12 @@ export interface ScheduledContentDetail {
 /**
  * UI model — used across calendar components.
  * Identical shape to ScheduledContentSummary; kept as a named alias
- * so component props stay semantically clear.
+ * so component props stay semantically clear at the call site.
  */
-export type ScheduledPost = ScheduledContentSummary
+export interface ScheduledPost {
+  id: string
+  title: string
+  platform: PlatformType
+  status: ContentStatus
+  scheduledAt: string
+}

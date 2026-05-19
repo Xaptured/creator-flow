@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -167,6 +168,28 @@ public class SchedulerController {
             throw new IllegalArgumentException("scheduledAt is required");
         }
         schedulerService.reschedule(contentId, request.getOwnerId(), request.getScheduledAt());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Delete a scheduled content row",
+            description = "Permanently deletes a content row. Rejected with 409 if PUBLISHING or PUBLISHED.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Deleted successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Content not found or not owned by caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Content is already PUBLISHING or PUBLISHED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping("/content/{id}")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<Void> deleteContent(
+            @Parameter(description = "Content UUID") @PathVariable("id") UUID contentId,
+            @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId) {
+        schedulerService.deleteContent(contentId, ownerId);
         return ResponseEntity.noContent().build();
     }
 }

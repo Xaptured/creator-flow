@@ -94,3 +94,19 @@ export async function updateScheduledContent(
   })
   return data
 }
+
+export async function deleteScheduledContent(
+  contentId: string,
+  ownerId: string,
+  accessToken: string
+): Promise<void> {
+  const url = buildUrl(
+    'scheduler',
+    '/v1.0/api/scheduler/content/:id',
+    { id: contentId },
+    { ownerId }
+  )
+  await axiosClient.delete(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+}
