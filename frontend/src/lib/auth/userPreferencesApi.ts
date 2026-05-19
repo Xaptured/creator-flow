@@ -8,7 +8,7 @@
 import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
 import { ProvisionUserRequest, UserPreferencesRequest } from '@/lib/request/user'
-import { NichesResponse, UserMeResponse, UserPreferencesResponse } from '@/lib/response/user'
+import { NichesResponse, TimezonesResponse, UserMeResponse, UserPreferencesResponse } from '@/lib/response/user'
 
 // Upserts the user row in auth-service on first sign-in.
 // ownerId and email are injected server-side by the BFF - never from browser input.
@@ -52,6 +52,18 @@ export async function fetchNiches(
 ): Promise<NichesResponse> {
   const url = buildUrl('auth', '/v1.0/api/user/niches')
   const { data } = await axiosClient.get<NichesResponse>(url, {
+    params: { ownerId },
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  return data
+}
+
+export async function fetchTimezones(
+  ownerId: string,
+  accessToken: string
+): Promise<TimezonesResponse> {
+  const url = buildUrl('auth', '/v1.0/api/user/timezones')
+  const { data } = await axiosClient.get<TimezonesResponse>(url, {
     params: { ownerId },
     headers: { Authorization: `Bearer ${accessToken}` },
   })

@@ -5,7 +5,6 @@ import { Box, Typography } from '@mui/material'
 import { useRouter } from 'next/navigation'
 import { ScheduledPost } from '@/lib/response/scheduler'
 import { toZonedTime } from 'date-fns-tz'
-import { toLocalDatetimeLocal } from '@/lib/timezone/timezoneUtils'
 import CalendarEvent from './CalendarEvent'
 
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -92,8 +91,7 @@ export default function CalendarWeekView({
   }
 
   function handleEventClick(post: ScheduledPost) {
-    const localIso = toLocalDatetimeLocal(post.scheduledAt, userTimezone)
-    router.push(`/dashboard/composer?date=${localIso}`)
+    router.push(`/dashboard/composer?editId=${post.id}`)
   }
 
   return (

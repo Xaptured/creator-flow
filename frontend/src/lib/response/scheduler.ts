@@ -34,7 +34,7 @@ export interface ContentStatusResponse {
   updatedAt: string
 }
 
-/** From GET /content — list endpoint (GAP-1) */
+/** From GET /content — list endpoint */
 export interface ScheduledContentSummary {
   id: string
   title: string
@@ -43,9 +43,28 @@ export interface ScheduledContentSummary {
   scheduledAt: string
 }
 
+/** From GET /content/{id} — full details for edit mode */
+export interface ScheduledContentDetail {
+  id: string
+  title: string
+  description: string | null
+  mediaFileId: string | null
+  platformTargets: PlatformType[]
+  status: ContentStatus
+  scheduledAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 /**
  * UI model — used across calendar components.
  * Identical shape to ScheduledContentSummary; kept as a named alias
- * so component props stay semantically clear.
+ * so component props stay semantically clear at the call site.
  */
-export type ScheduledPost = ScheduledContentSummary
+export interface ScheduledPost {
+  id: string
+  title: string
+  platform: PlatformType
+  status: ContentStatus
+  scheduledAt: string
+}

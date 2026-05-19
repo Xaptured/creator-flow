@@ -22,3 +22,7 @@ export interface UserPreferencesResponse {
 export interface NichesResponse {
   niches: string[]
 }
+
+export interface TimezonesResponse {
+  timezones: string[]
+}

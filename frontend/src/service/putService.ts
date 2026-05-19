@@ -1,6 +1,8 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { makeApiError } from '@/lib/response/error';
+import { UpdateContentRequest } from '@/lib/request/scheduler';
 import { UserPreferencesRequest } from '@/lib/request/user';
+import { ScheduledContentDetail } from '@/lib/response/scheduler';
 import { UserPreferencesResponse } from '@/lib/response/user';
 
 export function uploadToS3(
@@ -46,6 +48,19 @@ export async function rescheduleContent(
   await browserAxiosClient.patch(`/api/scheduler/content/${contentId}/reschedule`, {
     scheduledAt,
   });
+}
+
+// ownerId is intentionally excluded from the browser-side type.
+// The BFF injects ownerId from session.userId before forwarding to scheduler-service.
+export async function updateScheduledContent(
+  contentId: string,
+  body: Omit<UpdateContentRequest, 'ownerId'>
+): Promise<ScheduledContentDetail> {
+  const { data } = await browserAxiosClient.put<ScheduledContentDetail>(
+    `/api/scheduler/content/${contentId}`,
+    body
+  );
+  return data;
 }
 
 // ownerId is intentionally excluded from the browser-side type.

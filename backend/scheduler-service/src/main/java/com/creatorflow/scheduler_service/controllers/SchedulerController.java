@@ -2,9 +2,11 @@ package com.creatorflow.scheduler_service.controllers;
 
 import com.creatorflow.scheduler_service.dto.request.RescheduleContentRequest;
 import com.creatorflow.scheduler_service.dto.request.ScheduleContentRequest;
+import com.creatorflow.scheduler_service.dto.request.UpdateContentRequest;
 import com.creatorflow.scheduler_service.dto.response.ContentStatusResponse;
 import com.creatorflow.scheduler_service.dto.response.ErrorResponse;
 import com.creatorflow.scheduler_service.dto.response.ScheduleContentResponse;
+import com.creatorflow.scheduler_service.dto.response.ScheduledContentDetail;
 import com.creatorflow.scheduler_service.dto.response.ScheduledContentSummary;
 import com.creatorflow.scheduler_service.services.SchedulerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,10 +20,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,27 +37,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1.0/api/scheduler")
 @RequiredArgsConstructor
-@Tag(name = "Scheduler", description = "Schedule content for publish to connected social platforms. " +
-        "Supports both instant publish (scheduledAt = now) and future scheduled publish via the same endpoint.")
+@Tag(name = "Scheduler", description = "Schedule content for publish to connected social platforms.")
 public class SchedulerController {
 
     private final SchedulerService schedulerService;
 
-    @Operation(
-            summary = "Schedule content for publish",
-            description = "Creates one content row per platform target, each saved in its own independent transaction. " +
-                    "Supplying [YOUTUBE, INSTAGRAM, TWITTER] creates three rows — a DB failure for one platform " +
-                    "does not roll back the others. " +
-                    "Each entry in the response array maps to one platform: successes carry contentId and status=SCHEDULED; " +
-                    "failures carry status=FAILED_TO_SCHEDULE and an error message. " +
-                    "HTTP 201 is returned if at least one platform succeeded; 500 if all failed. " +
-                    "If scheduledAt is omitted or set to now, rows are picked up within the next Quartz poll cycle " +
-                    "(instant publish). ownerId must be injected server-side by the BFF — never from the browser."
-    )
+    @Operation(summary = "Schedule content for publish")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "At least one platform row created successfully. " +
-                    "Check individual entries for per-platform status and any error messages."),
-            @ApiResponse(responseCode = "400", description = "Missing required fields or invalid platformTargets",
+            @ApiResponse(responseCode = "201", description = "At least one platform row created successfully."),
+            @ApiResponse(responseCode = "400", description = "Missing required fields",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Unauthenticated",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -71,13 +63,8 @@ public class SchedulerController {
         return ResponseEntity.status(status).body(responses);
     }
 
-    @Operation(
-            summary = "Get content publish status",
-            description = "Returns the current publish status for a piece of content. " +
-                    "Status transitions: SCHEDULED → PUBLISHING → PUBLISHED / FAILED. " +
-                    "ownerId is always injected server-side by the BFF — never from the browser."
-    )
-    @ ApiResponses({
+    @Operation(summary = "Get content publish status")
+    @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Status returned successfully"),
             @ApiResponse(responseCode = "401", description = "Unauthenticated",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -90,16 +77,11 @@ public class SchedulerController {
     @PreAuthorize("hasRole('CREATOR')")
     public ResponseEntity<ContentStatusResponse> getStatus(
             @Parameter(description = "Content UUID") @PathVariable("id") UUID contentId,
-            @Parameter(description = "Owner UUID — injected server-side by BFF, never from browser")
-            @RequestParam("ownerId") UUID ownerId) {
+            @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId) {
         return ResponseEntity.ok(schedulerService.getStatus(contentId, ownerId));
     }
 
-    @Operation(
-            summary = "List all scheduled content for the owner",
-            description = "Returns all content rows for the owner, ordered by scheduledAt ascending. " +
-                    "Each row represents one platform target. ownerId is always injected server-side by the BFF."
-    )
+    @Operation(summary = "List all scheduled content for the owner")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "List returned successfully"),
             @ApiResponse(responseCode = "401", description = "Unauthenticated",
@@ -110,19 +92,57 @@ public class SchedulerController {
     @GetMapping("/content")
     @PreAuthorize("hasRole('CREATOR')")
     public ResponseEntity<List<ScheduledContentSummary>> listContent(
-            @Parameter(description = "Owner UUID — injected server-side by BFF, never from browser")
-            @RequestParam("ownerId") UUID ownerId) {
+            @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId) {
         return ResponseEntity.ok(schedulerService.listContent(ownerId));
     }
 
-    @Operation(
-            summary = "Reschedule a piece of content",
-            description = "Updates scheduled_at for a SCHEDULED or FAILED content row. " +
-                    "Rejects with 409 if the content is already PUBLISHING or PUBLISHED. " +
-                    "Because Quartz uses poll-based scheduling, no per-row trigger needs to be cancelled — " +
-                    "the poll loop picks up the updated time automatically. " +
-                    "ownerId is always injected server-side by the BFF."
-    )
+    @Operation(summary = "Get full details for a single content row",
+            description = "Returns all fields needed to pre-fill the composer in edit mode.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Content details returned"),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Content not found or not owned by caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/content/{id}")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<ScheduledContentDetail> getContent(
+            @Parameter(description = "Content UUID") @PathVariable("id") UUID contentId,
+            @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId) {
+        return ResponseEntity.ok(schedulerService.getContent(contentId, ownerId));
+    }
+
+    @Operation(summary = "Update a scheduled content row",
+            description = "Updates all mutable fields. Rejected with 409 if PUBLISHING or PUBLISHED.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Updated content details returned"),
+            @ApiResponse(responseCode = "400", description = "Missing required fields",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Content not found or not owned by caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Content is already PUBLISHING or PUBLISHED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping("/content/{id}")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<ScheduledContentDetail> updateContent(
+            @Parameter(description = "Content UUID") @PathVariable("id") UUID contentId,
+            @RequestBody UpdateContentRequest request) {
+        if (request.getOwnerId() == null) {
+            throw new IllegalArgumentException("ownerId is required");
+        }
+        return ResponseEntity.ok(schedulerService.updateContent(contentId, request.getOwnerId(), request));
+    }
+
+    @Operation(summary = "Reschedule a piece of content",
+            description = "Updates scheduled_at for a SCHEDULED or FAILED content row.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Rescheduled successfully"),
             @ApiResponse(responseCode = "400", description = "Missing or invalid scheduledAt",
@@ -148,6 +168,28 @@ public class SchedulerController {
             throw new IllegalArgumentException("scheduledAt is required");
         }
         schedulerService.reschedule(contentId, request.getOwnerId(), request.getScheduledAt());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Delete a scheduled content row",
+            description = "Permanently deletes a content row. Rejected with 409 if PUBLISHING or PUBLISHED.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Deleted successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Content not found or not owned by caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Content is already PUBLISHING or PUBLISHED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping("/content/{id}")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<Void> deleteContent(
+            @Parameter(description = "Content UUID") @PathVariable("id") UUID contentId,
+            @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId) {
+        schedulerService.deleteContent(contentId, ownerId);
         return ResponseEntity.noContent().build();
     }
 }

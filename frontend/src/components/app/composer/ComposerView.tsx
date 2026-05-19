@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import useSWR from 'swr'
 import {
@@ -13,20 +13,27 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import PermMediaOutlinedIcon from '@mui/icons-material/PermMediaOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
 import TagOutlinedIcon from '@mui/icons-material/TagOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
-import { PlatformType } from '@/lib/response/scheduler'
-import { ScheduleContentResponse } from '@/lib/response/scheduler'
+import { ContentStatus, PlatformType, ScheduleContentResponse } from '@/lib/response/scheduler'
 import { MediaFile } from '@/lib/response/media'
-import { getPlatformStatus, getUserPreferences } from '@/service/getService'
+import { getPlatformStatus, getScheduledContentDetail, getUserPreferences } from '@/service/getService'
 import { scheduleContent } from '@/service/postService'
+import { updateScheduledContent } from '@/service/putService'
+import { deleteScheduledContent } from '@/service/deleteService'
 import { toApiError } from '@/service/errorService'
-import { toUtcIso } from '@/lib/timezone/timezoneUtils'
+import { toLocalDatetimeLocal, toUtcIso } from '@/lib/timezone/timezoneUtils'
 import VaultPickerDialog from './VaultPickerDialog'
 
 const inputSx = {
@@ -80,6 +87,10 @@ export default function ComposerView() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // edit mode: editId param means we're editing an existing post
+  const editId = searchParams.get('editId')
+  const isEditMode = !!editId
+
   const { data: preferences } = useSWR(
     '/api/user/preferences',
     getUserPreferences,
@@ -106,6 +117,47 @@ export default function ComposerView() {
   const [submitting, setSubmitting] = useState(false)
   const [results, setResults] = useState<ScheduleContentResponse[] | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [editSuccess, setEditSuccess] = useState(false)
+  const [editLoadError, setEditLoadError] = useState<string | null>(null)
+  const [editLoading, setEditLoading] = useState(isEditMode)
+  const [postStatus, setPostStatus] = useState<ContentStatus | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // Fetch and pre-fill data when in edit mode.
+  // Re-runs when preferences loads so we can convert scheduledAt to the user's timezone.
+  useEffect(() => {
+    if (!editId || !preferences) return
+
+    let cancelled = false
+    setEditLoading(true)
+    setEditLoadError(null)
+
+    getScheduledContentDetail(editId)
+      .then((post) => {
+        if (cancelled) return
+        setTitle(post.title)
+        setDescription(post.description ?? '')
+        setMediaFileId(post.mediaFileId ?? null)
+        setSelectedPlatforms(new Set(post.platformTargets))
+        setPostStatus(post.status)
+        if (post.scheduledAt) {
+          setScheduledAt(toLocalDatetimeLocal(post.scheduledAt, userTimezone))
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const apiErr = toApiError(err)
+        setEditLoadError(apiErr.message ?? 'Failed to load post data')
+      })
+      .finally(() => {
+        if (!cancelled) setEditLoading(false)
+      })
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, preferences])
 
   const { data: platformStatuses = [] } = useSWR(
     '/api/platforms/status',
@@ -129,49 +181,129 @@ export default function ComposerView() {
     setMediaFileName(file.originalName)
   }
 
+  async function handleDelete() {
+    if (!editId) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteScheduledContent(editId)
+      setDeleteDialogOpen(false)
+      router.push('/dashboard/calendar')
+    } catch (err) {
+      const apiErr = toApiError(err)
+      setDeleteError(apiErr.message ?? 'Failed to delete post')
+      setDeleting(false)
+    }
+  }
+
   async function handleSubmit(publishNow: boolean) {
     if (!title.trim()) return
     if (selectedPlatforms.size === 0) return
     setSubmitting(true)
     setSubmitError(null)
     setResults(null)
-    try {
-      const scheduledAtUtc = (!publishNow && scheduledAt)
-        ? toUtcIso(scheduledAt, userTimezone)
-        : undefined
+    setEditSuccess(false)
 
-      const res = await scheduleContent({
-        title: title.trim(),
-        description: description.trim() || undefined,
-        mediaFileId: mediaFileId ?? undefined,
-        platformTargets: Array.from(selectedPlatforms),
-        scheduledAt: scheduledAtUtc,
-      })
-      setResults(res)
-      if (res.some((r) => !r.error)) {
+    try {
+      if (isEditMode && editId) {
+        const scheduledAtUtc = (!publishNow && scheduledAt)
+          ? toUtcIso(scheduledAt, userTimezone)
+          : undefined
+        await updateScheduledContent(editId, {
+          title: title.trim(),
+          description: description.trim() || undefined,
+          mediaFileId: mediaFileId ?? undefined,
+          platformTargets: Array.from(selectedPlatforms),
+          scheduledAt: scheduledAtUtc,
+        })
+        setEditSuccess(true)
         setTimeout(() => router.push('/dashboard/calendar'), 1500)
+      } else {
+        const scheduledAtUtc = (!publishNow && scheduledAt)
+          ? toUtcIso(scheduledAt, userTimezone)
+          : undefined
+        const res = await scheduleContent({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          mediaFileId: mediaFileId ?? undefined,
+          platformTargets: Array.from(selectedPlatforms),
+          scheduledAt: scheduledAtUtc,
+        })
+        setResults(res)
+        if (res.some((r) => !r.error)) {
+          setTimeout(() => router.push('/dashboard/calendar'), 1500)
+        }
       }
     } catch (err) {
       const apiErr = toApiError(err)
-      setSubmitError(apiErr.message ?? 'Failed to schedule content')
+      setSubmitError(apiErr.message ?? (isEditMode ? 'Failed to update post' : 'Failed to schedule content'))
     } finally {
       setSubmitting(false)
     }
   }
 
   const preferencesLoaded = preferences !== undefined
-  const canSubmit = title.trim().length > 0 && selectedPlatforms.size > 0 && !submitting && preferencesLoaded
+  const editReady = !isEditMode || (!editLoading && !editLoadError)
+  const isPublished = isEditMode && (postStatus === ContentStatus.PUBLISHED || postStatus === ContentStatus.PUBLISHING)
+  const isFailed = isEditMode && postStatus === ContentStatus.FAILED
+  // PUBLISHED/PUBLISHING: read-only, no save. FAILED/SCHEDULED/DRAFT: editable.
+  const canSubmit = title.trim().length > 0 && selectedPlatforms.size > 0 && !submitting && preferencesLoaded && editReady && !isPublished
+  // Delete allowed in edit mode for any status except PUBLISHING/PUBLISHED
+  const canDelete = isEditMode && !isPublished && !deleting && editReady
+
+  if (isEditMode && editLoading) {
+    return (
+      <Box>
+        <Box sx={{ mb: 4 }}>
+          <Typography sx={{ fontFamily: 'var(--cf-font-display)', fontSize: { xs: 24, sm: 28 }, fontWeight: 600, color: 'var(--th-text-primary)', letterSpacing: '-0.28px', lineHeight: 1.14 }}>
+            Edit Post
+          </Typography>
+          <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', letterSpacing: '-0.224px', mt: 0.5 }}>
+            Loading post data...
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+          <CircularProgress sx={{ color: 'var(--cf-blue)' }} />
+        </Box>
+      </Box>
+    )
+  }
 
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
         <Typography sx={{ fontFamily: 'var(--cf-font-display)', fontSize: { xs: 24, sm: 28 }, fontWeight: 600, color: 'var(--th-text-primary)', letterSpacing: '-0.28px', lineHeight: 1.14 }}>
-          Composer
+          {isEditMode ? 'Edit Post' : 'Composer'}
         </Typography>
         <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', letterSpacing: '-0.224px', mt: 0.5 }}>
-          Create and schedule your content across platforms.
+          {isEditMode && isFailed ? 'This post failed to publish. Fix any issues and save to retry.' : isEditMode ? 'Update your scheduled post.' : 'Create and schedule your content across platforms.'}
         </Typography>
       </Box>
+
+      {editLoadError && (
+        <Alert severity="error" sx={{ mb: 3, fontFamily: 'var(--cf-font-text)', fontSize: 13, backgroundColor: 'rgba(255,64,64,0.1)', color: '#ff4040', border: '1px solid rgba(255,64,64,0.3)', borderRadius: '8px', '& .MuiAlert-icon': { color: '#ff4040' } }}>
+          {editLoadError}
+        </Alert>
+      )}
+
+
+      {isPublished && (
+        <Box sx={{ mb: 3, p: 1.5, borderRadius: '8px', backgroundColor: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.25)', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 16, color: '#34c759', flexShrink: 0 }} />
+          <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: '#34c759' }}>
+            This post has already been published and cannot be edited.
+          </Typography>
+        </Box>
+      )}
+
+      {isFailed && (
+        <Box sx={{ mb: 3, p: 1.5, borderRadius: '8px', backgroundColor: 'rgba(255,64,64,0.08)', border: '1px solid rgba(255,64,64,0.3)', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ErrorOutlineOutlinedIcon sx={{ fontSize: 16, color: '#ff4040', flexShrink: 0 }} />
+          <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: '#ff4040' }}>
+            Publishing failed. Update the details below and save to retry — the scheduler will pick it up automatically.
+          </Typography>
+        </Box>
+      )}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 320px' }, gap: 3, alignItems: 'start' }}>
 
@@ -204,7 +336,7 @@ export default function ComposerView() {
             >
               <PermMediaOutlinedIcon sx={{ fontSize: 36, color: mediaFileId ? 'var(--cf-blue)' : 'var(--th-text-tertiary)' }} />
               <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: mediaFileId ? 'var(--cf-blue)' : 'var(--th-text-secondary)', letterSpacing: '-0.224px', fontWeight: mediaFileId ? 500 : 400 }}>
-                {mediaFileName ?? 'Pick from Vault or upload new media'}
+                {mediaFileName ?? (mediaFileId ? 'Media attached' : 'Pick from Vault or upload new media')}
               </Typography>
               <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px' }}>
                 {mediaFileId ? 'Click to change' : 'MP4, MOV, JPG, PNG — max 500 MB'}
@@ -269,6 +401,20 @@ export default function ComposerView() {
                     label={<Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', letterSpacing: '-0.224px' }}>{PLATFORM_LABELS[p]}</Typography>}
                   />
                 ))}
+                {isEditMode && Array.from(selectedPlatforms)
+                  .filter((p) => !connectedPlatforms.includes(p))
+                  .map((p) => (
+                    <FormControlLabel
+                      key={p}
+                      control={<Checkbox checked disabled sx={{ color: 'var(--th-text-tertiary)', '&.Mui-checked': { color: 'var(--th-text-tertiary)' } }} />}
+                      label={
+                        <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-tertiary)', letterSpacing: '-0.224px' }}>
+                          {PLATFORM_LABELS[p] ?? p} (disconnected)
+                        </Typography>
+                      }
+                    />
+                  ))
+                }
               </Box>
             )}
             <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mt: 1.5 }}>
@@ -290,19 +436,20 @@ export default function ComposerView() {
               InputLabelProps={{ shrink: true }}
             />
             {preferences?.timezone && preferences.timezone !== 'UTC' && (
-              <Typography
-                sx={{
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: 11,
-                  color: 'var(--th-text-tertiary)',
-                  letterSpacing: '-0.08px',
-                  mt: 0.75,
-                }}
-              >
+              <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 11, color: 'var(--th-text-tertiary)', letterSpacing: '-0.08px', mt: 0.75 }}>
                 Times are in {preferences.timezone}
               </Typography>
             )}
           </Box>
+
+          {editSuccess && (
+            <Box sx={{ p: 1.5, borderRadius: '8px', backgroundColor: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.25)', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 16, color: '#34c759', flexShrink: 0 }} />
+              <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: '#34c759' }}>
+                Post updated — returning to calendar...
+              </Typography>
+            </Box>
+          )}
 
           {results && results.length > 0 && (
             <Box sx={cardSx}>
@@ -338,20 +485,79 @@ export default function ComposerView() {
               onClick={() => handleSubmit(false)}
               sx={{ backgroundColor: 'var(--cf-blue)', color: '#ffffff', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', boxShadow: 'none', '&:hover': { backgroundColor: '#0077ed', boxShadow: 'none' }, '&.Mui-disabled': { backgroundColor: 'rgba(0,113,227,0.4)', color: 'rgba(255,255,255,0.6)' } }}
             >
-              {submitting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Schedule Post'}
+              {submitting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : isEditMode ? 'Save Changes' : 'Schedule Post'}
             </Button>
-            <Button
-              variant="outlined"
-              fullWidth
-              disabled={!canSubmit}
-              onClick={() => handleSubmit(true)}
-              sx={{ borderColor: 'var(--th-border)', color: 'var(--th-text-secondary)', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', '&:hover': { borderColor: 'var(--th-text-secondary)', backgroundColor: 'var(--th-bg-surface)' }, '&.Mui-disabled': { borderColor: 'var(--th-border)', color: 'var(--th-text-tertiary)' } }}
-            >
-              Publish Now
-            </Button>
+            {!isEditMode && (
+              <Button
+                variant="outlined"
+                fullWidth
+                disabled={!canSubmit}
+                onClick={() => handleSubmit(true)}
+                sx={{ borderColor: 'var(--th-border)', color: 'var(--th-text-secondary)', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', '&:hover': { borderColor: 'var(--th-text-secondary)', backgroundColor: 'var(--th-bg-surface)' }, '&.Mui-disabled': { borderColor: 'var(--th-border)', color: 'var(--th-text-tertiary)' } }}
+              >
+                Publish Now
+              </Button>
+            )}
+            {isEditMode && (
+              <Button
+                variant="outlined"
+                fullWidth
+                disabled={!canDelete}
+                onClick={() => { setDeleteError(null); setDeleteDialogOpen(true) }}
+                startIcon={<DeleteOutlineOutlinedIcon sx={{ fontSize: 16 }} />}
+                sx={{ borderColor: 'rgba(255,64,64,0.4)', color: '#ff4040', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', '&:hover': { borderColor: '#ff4040', backgroundColor: 'rgba(255,64,64,0.06)' }, '&.Mui-disabled': { borderColor: 'rgba(255,64,64,0.2)', color: 'rgba(255,64,64,0.4)' } }}
+              >
+                Delete Post
+              </Button>
+            )}
           </Box>
         </Box>
       </Box>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !deleting && setDeleteDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            backgroundColor: 'var(--th-bg-card)',
+            border: '1px solid var(--th-border-card)',
+            borderRadius: '12px',
+            color: 'var(--th-text-primary)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontFamily: 'var(--cf-font-display)', fontSize: 17, fontWeight: 600, color: 'var(--th-text-primary)', letterSpacing: '-0.2px' }}>
+          Delete post?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', letterSpacing: '-0.224px' }}>
+            This will permanently delete the post and cannot be undone.
+          </DialogContentText>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2, fontFamily: 'var(--cf-font-text)', fontSize: 13, backgroundColor: 'rgba(255,64,64,0.1)', color: '#ff4040', border: '1px solid rgba(255,64,64,0.3)', borderRadius: '8px', '& .MuiAlert-icon': { color: '#ff4040' } }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={deleting}
+            sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', textTransform: 'none', borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            disabled={deleting}
+            variant="contained"
+            sx={{ backgroundColor: '#ff4040', color: '#fff', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { backgroundColor: '#e03030', boxShadow: 'none' }, '&.Mui-disabled': { backgroundColor: 'rgba(255,64,64,0.4)', color: 'rgba(255,255,255,0.6)' } }}
+          >
+            {deleting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

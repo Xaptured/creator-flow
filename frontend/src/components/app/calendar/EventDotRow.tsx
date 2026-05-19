@@ -4,9 +4,15 @@ import { Box, Tooltip, Typography } from '@mui/material'
 import { ScheduledPost, PlatformType } from '@/lib/response/scheduler'
 
 export const PLATFORM_COLORS: Record<PlatformType, string> = {
-  [PlatformType.YOUTUBE]: '#FF0000',
-  [PlatformType.INSTAGRAM]: '#E1306C',
-  [PlatformType.TWITTER]: '#1DA1F2',
+  [PlatformType.YOUTUBE]: '#ff3b30',
+  [PlatformType.INSTAGRAM]: '#bf5af2',
+  [PlatformType.TWITTER]: '#0071e3',
+}
+
+export const PLATFORM_BG_COLORS: Record<PlatformType, string> = {
+  [PlatformType.YOUTUBE]: 'rgba(255,59,48,0.10)',
+  [PlatformType.INSTAGRAM]: 'rgba(191,90,242,0.10)',
+  [PlatformType.TWITTER]: 'rgba(0,113,227,0.10)',
 }
 
 interface Props {

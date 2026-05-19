@@ -3,6 +3,7 @@ package com.creatorflow.auth_service.controllers;
 import com.creatorflow.auth_service.dto.request.ProvisionUserRequest;
 import com.creatorflow.auth_service.dto.request.UserPreferencesRequest;
 import com.creatorflow.auth_service.dto.response.NichesResponse;
+import com.creatorflow.auth_service.dto.response.TimezonesResponse;
 import com.creatorflow.auth_service.dto.response.UserPreferencesResponse;
 import com.creatorflow.auth_service.dto.response.UserMeResponse;
 import com.creatorflow.auth_service.services.UserService;
@@ -133,5 +134,27 @@ public class UserPreferencesController {
             @RequestParam UUID ownerId
     ) {
         return ResponseEntity.ok(userService.getNiches());
+    }
+
+    @Operation(
+            summary = "List available timezones",
+            description = "Returns the ordered list of valid IANA timezone identifiers. " +
+                          "Use this to populate the timezone dropdown in the Settings UI."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Timezone list returned",
+                    content = @Content(schema = @Schema(implementation = TimezonesResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/timezones")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<TimezonesResponse> getTimezones(
+            @Parameter(description = "Keycloak UUID of the authenticated user (injected by BFF)", required = true)
+            @RequestParam UUID ownerId
+    ) {
+        return ResponseEntity.ok(userService.getTimezones());
     }
 }

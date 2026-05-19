@@ -26,7 +26,7 @@ import InstagramIcon from '@mui/icons-material/Instagram'
 import TwitterIcon from '@mui/icons-material/Twitter'
 import { PlatformType } from '@/lib/response/scheduler'
 import { PlatformStatusResponse } from '@/lib/response/platform'
-import { getNiches, getPlatformStatus, getUserPreferences } from '@/service/getService'
+import { getNiches, getPlatformStatus, getTimezones, getUserPreferences } from '@/service/getService'
 import { disconnectPlatform } from '@/service/deleteService'
 import { updateUserPreferences } from '@/service/putService'
 import { toApiError } from '@/service/errorService'
@@ -94,12 +94,6 @@ const sectionHeadSx = {
   mb: 2.5,
 }
 
-const TIMEZONES = [
-  'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
-  'America/Los_Angeles', 'Europe/London', 'Europe/Paris',
-  'Asia/Dubai', 'Asia/Kolkata', 'Asia/Singapore',
-  'Asia/Tokyo', 'Australia/Sydney',
-]
 
 const ALL_PLATFORMS: PlatformType[] = [
   PlatformType.YOUTUBE,
@@ -353,6 +347,12 @@ export default function SettingsView() {
     { revalidateOnFocus: false }
   )
 
+  const { data: timezonesData, isLoading: timezonesLoading } = useSWR(
+    '/api/user/timezones',
+    getTimezones,
+    { revalidateOnFocus: false }
+  )
+
   const [disconnecting, setDisconnecting] = useState<PlatformType | null>(null)
   const [timezone, setTimezone] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -366,6 +366,7 @@ export default function SettingsView() {
   const effectiveDisplayName = displayName !== '' ? displayName : (preferences?.displayName ?? '')
   const effectiveNiche = niche !== '' ? niche : (preferences?.niche ?? '')
   const niches = nichesData?.niches ?? []
+  const timezones = timezonesData?.timezones ?? []
 
   const statusMap = new Map<PlatformType, PlatformStatusResponse>()
   if (statuses) {
@@ -593,7 +594,7 @@ export default function SettingsView() {
 
                 <FormControl fullWidth sx={selectSx}>
                   <InputLabel>Timezone</InputLabel>
-                  {prefsLoading ? (
+                  {prefsLoading || timezonesLoading ? (
                     <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
                   ) : (
                     <Select
@@ -602,7 +603,7 @@ export default function SettingsView() {
                       onChange={(e) => setTimezone(e.target.value)}
                       MenuProps={{ PaperProps: { sx: menuPaperSx } }}
                     >
-                      {TIMEZONES.map((tz) => (
+                      {timezones.map((tz) => (
                         <MenuItem key={tz} value={tz}>{tz}</MenuItem>
                       ))}
                     </Select>

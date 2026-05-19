@@ -15,6 +15,7 @@ import { toApiError } from '@/service/errorService'
 import { toUtcIso } from '@/lib/timezone/timezoneUtils'
 import CalendarGrid from './CalendarGrid'
 import CalendarWeekView from './CalendarWeekView'
+import { PLATFORM_COLORS, PLATFORM_BG_COLORS } from './EventDotRow'
 
 type ViewMode = 'month' | 'week'
 
@@ -143,6 +144,8 @@ export default function CalendarView() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
           {PLATFORMS.map((p) => {
             const active = activePlatforms.has(p)
+            const accentColor = PLATFORM_COLORS[p]
+            const accentBg = PLATFORM_BG_COLORS[p]
             return (
               <Chip
                 key={p}
@@ -150,13 +153,13 @@ export default function CalendarView() {
                 onClick={() => togglePlatform(p)}
                 size="small"
                 sx={{
-                  backgroundColor: active ? 'rgba(0, 113, 227, 0.15)' : 'var(--th-bg-surface)',
-                  color: active ? 'var(--cf-blue)' : 'var(--th-text-secondary)',
+                  backgroundColor: active ? accentBg : 'var(--th-bg-surface)',
+                  color: active ? accentColor : 'var(--th-text-secondary)',
                   fontFamily: 'var(--cf-font-text)',
                   fontSize: 12,
                   fontWeight: active ? 600 : 400,
                   border: '1px solid',
-                  borderColor: active ? 'rgba(0,113,227,0.3)' : 'var(--th-border)',
+                  borderColor: active ? `${accentColor}55` : 'var(--th-border)',
                   cursor: 'pointer',
                   '&:hover': { opacity: 0.85 },
                 }}
