@@ -1,5 +1,6 @@
 package com.creatorflow.media_service.controllers;
 
+import com.creatorflow.media_service.dto.response.DisconnectCheckResponse;
 import com.creatorflow.media_service.dto.response.ErrorResponse;
 import com.creatorflow.media_service.dto.response.PlatformStatusResponse;
 import com.creatorflow.media_service.model.PlatformType;
@@ -179,6 +180,33 @@ public class PlatformController {
                     .location(URI.create(errorRedirect + "server_error"))
                     .build();
         }
+    }
+
+    @Operation(
+            summary = "Check whether disconnecting a platform will affect scheduled content",
+            description = "Returns the count of SCHEDULED content rows that target this platform for the owner. " +
+                          "A count > 0 means the frontend should show a confirmation dialog before disconnecting. " +
+                          "ownerId is injected from session by the BFF — never from the browser."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Check result returned"),
+            @ApiResponse(responseCode = "400", description = "Unknown platform",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/{platform}/disconnect-check")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<DisconnectCheckResponse> disconnectCheck(
+            @Parameter(description = "Platform name: youtube | instagram | twitter")
+            @PathVariable String platform,
+            @Parameter(description = "Owner UUID — injected from session by BFF, never from browser")
+            @RequestParam("ownerId") UUID ownerId) {
+
+        PlatformType platformType = parsePlatform(platform);
+        return ResponseEntity.ok(platformStatusService.checkDisconnect(ownerId, platformType));
     }
 
     @Operation(

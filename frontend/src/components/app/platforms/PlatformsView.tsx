@@ -2,13 +2,23 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { Box, Typography, Button, Chip, Skeleton } from '@mui/material'
+import {
+  Box,
+  Typography,
+  Button,
+  Chip,
+  Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import { PlatformType } from '@/lib/response/scheduler'
 import { PlatformStatusResponse } from '@/lib/response/platform'
-import { getPlatformStatus } from '@/service/getService'
+import { getPlatformStatus, checkDisconnect } from '@/service/getService'
 import { disconnectPlatform } from '@/service/deleteService'
 
 const PLATFORM_META: Record<PlatformType, { name: string; description: string }> = {
@@ -96,6 +106,11 @@ export default function PlatformsView() {
   )
 
   const [disconnecting, setDisconnecting] = useState<PlatformType | null>(null)
+  const [checking, setChecking] = useState<PlatformType | null>(null)
+
+  // Confirmation dialog state
+  const [confirmPlatform, setConfirmPlatform] = useState<PlatformType | null>(null)
+  const [scheduledCount, setScheduledCount] = useState(0)
 
   const statusMap = new Map<PlatformType, PlatformStatusResponse>()
   if (statuses) {
@@ -108,7 +123,28 @@ export default function PlatformsView() {
     window.location.href = `/api/platforms/connect?platform=${platform.toLowerCase()}`
   }
 
-  async function handleDisconnect(platform: PlatformType) {
+  /** Called when the user clicks "Disconnect". Runs the check first. */
+  async function handleDisconnectClick(platform: PlatformType) {
+    setChecking(platform)
+    try {
+      const { scheduledCount: count } = await checkDisconnect(platform.toLowerCase())
+      if (count > 0) {
+        // Warn the user — open the confirmation dialog
+        setScheduledCount(count)
+        setConfirmPlatform(platform)
+      } else {
+        // Nothing at risk — disconnect immediately
+        await executeDisconnect(platform)
+      }
+    } catch (err) {
+      console.error('Failed to check platform disconnect', err)
+    } finally {
+      setChecking(null)
+    }
+  }
+
+  /** Performs the actual disconnect after confirmation (or when count is 0). */
+  async function executeDisconnect(platform: PlatformType) {
     setDisconnecting(platform)
     try {
       await disconnectPlatform(platform.toLowerCase())
@@ -117,7 +153,18 @@ export default function PlatformsView() {
       console.error('Failed to disconnect platform', err)
     } finally {
       setDisconnecting(null)
+      setConfirmPlatform(null)
     }
+  }
+
+  function handleConfirmDisconnect() {
+    if (confirmPlatform) {
+      executeDisconnect(confirmPlatform)
+    }
+  }
+
+  function handleCancelDisconnect() {
+    setConfirmPlatform(null)
   }
 
   return (
@@ -162,6 +209,7 @@ export default function PlatformsView() {
               const isExpired = status === 'expired'
               const meta = PLATFORM_META[platformType]
               const isDisconnecting = disconnecting === platformType
+              const isChecking = checking === platformType
 
               return (
                 <Box
@@ -261,8 +309,8 @@ export default function PlatformsView() {
                         variant="outlined"
                         startIcon={<LinkOffOutlinedIcon />}
                         size="small"
-                        disabled={isDisconnecting}
-                        onClick={() => handleDisconnect(platformType)}
+                        disabled={isDisconnecting || isChecking}
+                        onClick={() => handleDisconnectClick(platformType)}
                         sx={{
                           color: 'var(--th-text-tertiary)',
                           borderColor: 'var(--th-border)',
@@ -279,7 +327,7 @@ export default function PlatformsView() {
                           '&:disabled': { opacity: 0.5 },
                         }}
                       >
-                        {isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+                        {isChecking ? 'Checking…' : isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
                       </Button>
                     )}
 
@@ -309,6 +357,105 @@ export default function PlatformsView() {
               )
             })}
       </Box>
+
+      {/* Disconnect confirmation dialog — shown only when scheduled posts exist */}
+      <Dialog
+        open={confirmPlatform !== null}
+        onClose={handleCancelDisconnect}
+        PaperProps={{
+          sx: {
+            backgroundColor: 'var(--th-bg-card)',
+            backgroundImage: 'none',
+            border: '1px solid var(--th-border-card)',
+            borderRadius: '12px',
+            maxWidth: 420,
+            width: '100%',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontFamily: 'var(--cf-font-display)',
+            fontSize: 17,
+            fontWeight: 600,
+            color: 'var(--th-text-primary)',
+            letterSpacing: '-0.2px',
+            pb: 1,
+          }}
+        >
+          Disconnect{confirmPlatform ? ` ${PLATFORM_META[confirmPlatform].name}` : ''}?
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: '0 !important' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 1.5,
+              p: 1.5,
+              borderRadius: '8px',
+              backgroundColor: 'rgba(255,159,10,0.08)',
+              border: '1px solid rgba(255,159,10,0.2)',
+              mb: 1,
+            }}
+          >
+            <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#ff9f0a', mt: '1px', flexShrink: 0 }} />
+            <Typography
+              sx={{
+                fontFamily: 'var(--cf-font-text)',
+                fontSize: 13,
+                color: 'var(--th-text-secondary)',
+                letterSpacing: '-0.12px',
+                lineHeight: 1.5,
+              }}
+            >
+              You have{' '}
+              <Box component="span" sx={{ fontWeight: 600, color: 'var(--th-text-primary)' }}>
+                {scheduledCount} scheduled {scheduledCount === 1 ? 'post' : 'posts'}
+              </Box>{' '}
+              targeting{' '}
+              {confirmPlatform ? PLATFORM_META[confirmPlatform].name : 'this platform'}.
+              Disconnecting will delete{' '}
+              {scheduledCount === 1 ? 'it' : 'them'}.
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button
+            onClick={handleCancelDisconnect}
+            sx={{
+              fontFamily: 'var(--cf-font-text)',
+              fontSize: 13,
+              fontWeight: 400,
+              color: 'var(--th-text-secondary)',
+              textTransform: 'none',
+              borderRadius: '8px',
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={disconnecting !== null}
+            onClick={handleConfirmDisconnect}
+            sx={{
+              backgroundColor: '#ff4040',
+              color: '#ffffff',
+              fontFamily: 'var(--cf-font-text)',
+              fontSize: 13,
+              fontWeight: 500,
+              borderRadius: '8px',
+              textTransform: 'none',
+              boxShadow: 'none',
+              '&:hover': { backgroundColor: '#e03030', boxShadow: 'none' },
+              '&:disabled': { opacity: 0.5 },
+            }}
+          >
+            {disconnecting !== null ? 'Disconnecting…' : 'Disconnect'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

@@ -5,7 +5,24 @@
 
 import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
-import { PlatformStatusResponse } from '@/lib/response/platform'
+import { DisconnectCheckResponse, PlatformStatusResponse } from '@/lib/response/platform'
+
+/**
+ * Checks how many SCHEDULED content rows will be affected if the given platform
+ * is disconnected. Returns { scheduledCount: N }.
+ * Called only from the Next.js BFF disconnect-check route.
+ */
+export async function checkPlatformDisconnect(
+  platform: string,
+  ownerId: string,
+  accessToken: string
+): Promise<DisconnectCheckResponse> {
+  const url = buildUrl('media', `/api/platforms/${platform}/disconnect-check`, undefined, { ownerId })
+  const { data } = await axiosClient.get<DisconnectCheckResponse>(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  return data
+}
 
 export async function getPlatformStatus(
   ownerId: string,
