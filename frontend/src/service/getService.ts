@@ -1,7 +1,7 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { MediaFile } from '@/lib/response/media';
 import { ContentStatusResponse, ScheduledContentDetail, ScheduledPost } from '@/lib/response/scheduler';
-import { PlatformStatusResponse } from '@/lib/response/platform';
+import { DisconnectCheckResponse, PlatformStatusResponse } from '@/lib/response/platform';
 import { NichesResponse, TimezonesResponse, UserPreferencesResponse } from '@/lib/response/user';
 
 export async function getMediaFile(mediaId: string): Promise<MediaFile> {
@@ -35,6 +35,17 @@ export async function getScheduledContentDetail(contentId: string): Promise<Sche
 
 export async function getPlatformStatus(): Promise<PlatformStatusResponse[]> {
   const { data } = await browserAxiosClient.get<PlatformStatusResponse[]>('/api/platforms/status');
+  return data;
+}
+
+/**
+ * Checks whether disconnecting a platform will affect scheduled posts.
+ * Returns { scheduledCount: N } — a count > 0 means a warning dialog should be shown.
+ */
+export async function checkDisconnect(platform: string): Promise<DisconnectCheckResponse> {
+  const { data } = await browserAxiosClient.get<DisconnectCheckResponse>(
+    `/api/platforms/disconnect-check?platform=${platform}`
+  );
   return data;
 }
 
