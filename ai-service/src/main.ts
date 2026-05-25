@@ -1,9 +1,14 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { createApp } from './app.bootstrap.js';
 
+/**
+ * Local development entry point.
+ *
+ * Boots the NestJS app and starts an HTTP server on the configured port.
+ * This file is NOT used in Lambda — see lambda.ts for the production handler.
+ */
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  await app.listen(Number(process.env.PORT) || 8000);
+  const app = await createApp();
+  await app.listen(Number(process.env.PORT) || 8500);
 }
+
 bootstrap();

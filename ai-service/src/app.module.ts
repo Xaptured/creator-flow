@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AnalyticsModule } from './analytics/analytics.module';
-import { AiModule } from './ai/ai.module';
-import { EmbeddingsModule } from './embeddings/embeddings.module';
-import { HealthController } from './health/health.controller';
+import { AnalyticsModule } from './analytics/analytics.module.js';
+import { AiModule } from './ai/ai.module.js';
+import { EmbeddingsModule } from './embeddings/embeddings.module.js';
+import { HealthController } from './health/health.controller.js';
 
 @Module({
   imports: [
