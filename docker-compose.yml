@@ -54,7 +54,9 @@ services:
   # PostgreSQL 16
   # --------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector:pg16 = official Postgres 16 + pgvector extension pre-installed.
+    # Replaces postgres:16-alpine so CREATE EXTENSION vector works in migrations.
+    image: pgvector/pgvector:pg16
     container_name: creatorflow_postgres
     restart: unless-stopped
     environment:
