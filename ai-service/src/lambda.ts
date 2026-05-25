@@ -1,5 +1,10 @@
 import serverlessExpress from '@codegenie/serverless-express';
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Callback, Context } from 'aws-lambda';
+import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+  Callback,
+  Context,
+} from 'aws-lambda';
 import { Express } from 'express';
 import { createApp } from './app.bootstrap.js';
 
