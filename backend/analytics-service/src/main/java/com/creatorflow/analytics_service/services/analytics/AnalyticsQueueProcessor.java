@@ -78,9 +78,10 @@ public class AnalyticsQueueProcessor {
                 return;
             }
 
-            metricsFetchScheduler.scheduleMetricFetches(payload.getContentId(), payload.getOwnerId(), platform);
-            log.info("analytics-queue: scheduled metric fetch jobs — contentId: {}, platform: {}",
-                    payload.getContentId(), platform);
+            metricsFetchScheduler.scheduleMetricFetches(
+                    payload.getContentId(), payload.getOwnerId(), platform, payload.getPlatformPostId());
+            log.info("analytics-queue: scheduled metric fetch jobs — contentId: {}, platform: {}, platformPostId: {}",
+                    payload.getContentId(), platform, payload.getPlatformPostId());
 
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
 

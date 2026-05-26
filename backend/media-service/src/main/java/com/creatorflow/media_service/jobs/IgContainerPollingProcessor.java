@@ -173,13 +173,13 @@ public class IgContainerPollingProcessor {
         markPublished(tracking, mediaId, now);
     }
 
-    private void markPublished(IgContainerTracking tracking, String resultId, LocalDateTime now) {
+    private void markPublished(IgContainerTracking tracking, String igMediaId, LocalDateTime now) {
         tracking.setStatus(IgContainerStatus.FINISHED);
         tracking.setUpdatedAt(now);
         igContainerTrackingRepository.save(tracking);
 
-        updateContentStatus(tracking.getContentId(), ContentStatus.PUBLISHED, now);
-        emitStatusEvent(EVENT_PUBLISHED, tracking.getContentId(), tracking.getOwnerId());
+        updateContentStatus(tracking.getContentId(), ContentStatus.PUBLISHED, igMediaId, now);
+        emitStatusEvent(EVENT_PUBLISHED, tracking.getContentId(), tracking.getOwnerId(), igMediaId);
     }
 
     private void markFailed(IgContainerTracking tracking, String errorMessage, LocalDateTime now) {
@@ -188,11 +188,11 @@ public class IgContainerPollingProcessor {
         tracking.setUpdatedAt(now);
         igContainerTrackingRepository.save(tracking);
 
-        updateContentStatus(tracking.getContentId(), ContentStatus.FAILED, now);
-        emitStatusEvent(EVENT_FAILED, tracking.getContentId(), tracking.getOwnerId());
+        updateContentStatus(tracking.getContentId(), ContentStatus.FAILED, null, now);
+        emitStatusEvent(EVENT_FAILED, tracking.getContentId(), tracking.getOwnerId(), null);
     }
 
-    private void updateContentStatus(UUID contentId, ContentStatus newStatus, LocalDateTime now) {
+    private void updateContentStatus(UUID contentId, ContentStatus newStatus, String platformPostId, LocalDateTime now) {
         Optional<Content> contentOpt = contentRepository.findById(contentId);
         if (contentOpt.isEmpty()) {
             log.warn("IgContainerPollingJob: content row not found for contentId: {} — status not updated", contentId);
@@ -200,15 +200,20 @@ public class IgContainerPollingProcessor {
         }
         Content content = contentOpt.get();
         content.setStatus(newStatus);
+        if (platformPostId != null) {
+            content.setPlatformPostId(platformPostId);
+        }
         contentRepository.save(content);
-        log.debug("IgContainerPollingJob: content {} status → {}", contentId, newStatus);
+        log.debug("IgContainerPollingJob: content {} status → {}, platformPostId={}", contentId, newStatus, platformPostId);
     }
 
-    private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId) {
+    private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId, String platformPostId) {
         try {
             ContentPublishedPayload payload = new ContentPublishedPayload(
                     contentId,
                     ownerId,
+                    "INSTAGRAM",
+                    platformPostId,
                     EVENT_PUBLISHED.equals(eventType) ? "PUBLISHED" : "FAILED");
             String payloadJson = objectMapper.writeValueAsString(payload);
             CreatorflowEventMessage event = CreatorflowEventMessage.of(eventType, payloadJson);

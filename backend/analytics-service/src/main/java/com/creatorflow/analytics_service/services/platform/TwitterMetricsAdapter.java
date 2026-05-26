@@ -38,7 +38,7 @@ public class TwitterMetricsAdapter implements PlatformAdapter {
     }
 
     @Override
-    public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId) {
+    public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId, String platformPostId) {
         String tokenKey = String.format(TOKEN_KEY_PATTERN, ownerId);
         String accessToken = redisTemplate.opsForValue().get(tokenKey);
 
@@ -47,8 +47,8 @@ public class TwitterMetricsAdapter implements PlatformAdapter {
             return PlatformMetrics.of(0L, 0L, 0L, 0L);
         }
 
-        // TODO: call Twitter API v2 GET /2/tweets/{id}?tweet.fields=public_metrics
-        log.info("Twitter metrics fetch stub — contentId: {}, ownerId: {}", contentId, ownerId);
+        // TODO (CF-101): call Twitter API v2 GET /2/tweets/{platformPostId}?tweet.fields=public_metrics using accessToken
+        log.info("Twitter metrics fetch stub — contentId: {}, ownerId: {}, tweetId: {}", contentId, ownerId, platformPostId);
         return PlatformMetrics.of(0L, 0L, 0L, 0L);
     }
 }

@@ -27,7 +27,13 @@ public interface PlatformAdapter {
 
     PlatformAccount handleCallback(String code, String state);
 
-    void publish(UUID ownerId, Content content);
+    /**
+     * Publish content to the platform.
+     *
+     * @return platform-native post ID (e.g. YouTube videoId, tweet ID), or {@code null}
+     *         for platforms with an async publish flow (Instagram — ID is set later by the polling job).
+     */
+    String publish(UUID ownerId, Content content);
 
     default Map<String, Object> fetchMetrics(UUID ownerId) {
         return Collections.emptyMap();

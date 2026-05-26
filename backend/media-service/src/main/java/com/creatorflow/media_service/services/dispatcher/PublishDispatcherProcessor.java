@@ -120,7 +120,7 @@ public class PublishDispatcherProcessor {
         List<PlatformType> targets = deserialisePlatformTargets(payload.getPlatformTargets());
         if (targets.isEmpty()) {
             log.error("publish-dispatcher: empty platformTargets for contentId: {} — treating as failure", contentId);
-            emitStatusEvent(EVENT_FAILED, contentId, ownerId);
+            emitStatusEvent(EVENT_FAILED, contentId, ownerId, null, null);
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
             return;
         }
@@ -130,7 +130,7 @@ public class PublishDispatcherProcessor {
 
         try {
             PlatformAdapter adapter = adapterRegistry.getAdapter(platform);
-            adapter.publish(ownerId, content);
+            String platformPostId = adapter.publish(ownerId, content);
 
             if (igContainerTrackingRepository.findByContentId(contentId).isPresent()) {
                 log.info(
@@ -141,32 +141,37 @@ public class PublishDispatcherProcessor {
             }
 
             log.info("publish-dispatcher: published to {} — contentId: {}", platform, contentId);
-            emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId);
+            emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId, platform, platformPostId);
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
         } catch (OAuthTokenExchangeException e) {
             if (e.isInvalidGrant()) {
                 log.error(
                         "publish-dispatcher: OAuth token revoked (invalid_grant) — platform: {}, contentId: {}, ownerId: {} — marking FAILED, deleting message",
                         platform, contentId, ownerId, e);
-                emitStatusEvent(EVENT_FAILED, contentId, ownerId);
+                emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
                 deleteMessage(queueUrl, sqsMessage.receiptHandle());
             } else {
                 log.error("publish-dispatcher: transient OAuth error — platform: {}, contentId: {}",
                         platform, contentId, e);
-                emitStatusEvent(EVENT_FAILED, contentId, ownerId);
+                emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
             }
         } catch (Exception e) {
             log.error("publish-dispatcher: platform publish failed — platform: {}, contentId: {}",
                     platform, contentId, e);
-            emitStatusEvent(EVENT_FAILED, contentId, ownerId);
+            emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
             // Do NOT delete — leave for SQS visibility timeout + maxReceiveCount=3 → DLQ.
         }
     }
 
-    private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId) {
+    private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId,
+                                  PlatformType platform, String platformPostId) {
         try {
             ContentPublishedPayload statusPayload = new ContentPublishedPayload(
-                    contentId, ownerId, eventType.equals(EVENT_PUBLISHED) ? "PUBLISHED" : "FAILED");
+                    contentId,
+                    ownerId,
+                    platform != null ? platform.name() : null,
+                    platformPostId,
+                    eventType.equals(EVENT_PUBLISHED) ? "PUBLISHED" : "FAILED");
             String payloadJson = objectMapper.writeValueAsString(statusPayload);
             CreatorflowEventMessage event = CreatorflowEventMessage.of(eventType, payloadJson);
             snsPublisher.publishToTopic("content-published", event);

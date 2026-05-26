@@ -46,11 +46,20 @@ public class InstagramAdapter implements PlatformAdapter {
         return instagramOAuthService.handleCallback(code, state);
     }
 
+    /**
+     * Step 1 of the Instagram async publish flow — creates the media container.
+     * The platform post ID (IG media ID) is not available yet; it is set by
+     * {@link com.creatorflow.media_service.jobs.IgContainerPollingProcessor}
+     * once Instagram confirms the container is FINISHED.
+     *
+     * @return {@code null} — post ID unavailable at this stage.
+     */
     @Override
-    public void publish(UUID ownerId, Content content) {
+    public String publish(UUID ownerId, Content content) {
         instagramPublishService.publish(ownerId, content);
         log.info(
                 "InstagramAdapter.publish step 1 done — container recorded, polling job will complete: ownerId={} contentId={}",
                 ownerId, content.getId());
+        return null;
     }
 }
