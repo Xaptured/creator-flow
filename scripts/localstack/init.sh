@@ -116,8 +116,33 @@ CONTENT_STATUS_QUEUE_ARN=$($AWS sqs get-queue-attributes \
   --output text)
 echo "      URL: $CONTENT_STATUS_QUEUE_URL"
 
-# 8. Subscribe queues to SNS topics
-echo "[8/8] Subscribing SQS queues to SNS topics"
+# 8a. analytics-events SNS topic (analytics-service publishes; ai-service consumes)
+echo "[8a] Creating SNS topic: analytics-events"
+ANALYTICS_EVENTS_TOPIC_ARN=$($AWS sns create-topic \
+  --name analytics-events \
+  --region "$REGION" \
+  --query TopicArn \
+  --output text)
+echo "      ARN: $ANALYTICS_EVENTS_TOPIC_ARN"
+
+# 8b. ai-processing-queue (ai-service consumes analytics.updated events)
+echo "[8b] Creating SQS queue: ai-processing-queue"
+AI_PROCESSING_QUEUE_URL=$($AWS sqs create-queue \
+  --queue-name ai-processing-queue \
+  --region "$REGION" \
+  --query QueueUrl \
+  --output text)
+AI_PROCESSING_QUEUE_ARN=$($AWS sqs get-queue-attributes \
+  --queue-url "$AI_PROCESSING_QUEUE_URL" \
+  --attribute-names QueueArn \
+  --region "$REGION" \
+  --query Attributes.QueueArn \
+  --output text)
+echo "      URL: $AI_PROCESSING_QUEUE_URL"
+echo "      ARN: $AI_PROCESSING_QUEUE_ARN"
+
+# 9. Subscribe queues to SNS topics
+echo "[9/9] Subscribing SQS queues to SNS topics"
 
 # creatorflow-events → post-dispatcher-queue (media-service publishes to platforms)
 #                   → content-scheduler-queue (debug/logging)
@@ -159,22 +184,33 @@ $AWS sns subscribe \
   --region "$REGION" --output text > /dev/null
 echo "      content-published  -> analytics-queue"
 
+# analytics-events → ai-processing-queue (ai-service triggers embedding generation)
+$AWS sns subscribe \
+  --topic-arn "$ANALYTICS_EVENTS_TOPIC_ARN" \
+  --protocol sqs \
+  --notification-endpoint "$AI_PROCESSING_QUEUE_ARN" \
+  --region "$REGION" --output text > /dev/null
+echo "      analytics-events   -> ai-processing-queue"
+
 echo ""
 echo "============================================================"
 echo " LocalStack Init Complete"
 echo "============================================================"
 echo " SNS topics : creatorflow-events  -> $TOPIC_ARN"
 echo "              content-published   -> $CONTENT_PUBLISHED_TOPIC_ARN"
+echo "              analytics-events    -> $ANALYTICS_EVENTS_TOPIC_ARN"
 echo ""
 echo " Queues     : content-scheduler-queue  (debug fan-out)"
 echo "              post-dispatcher-queue    (media-service, DLQ -> content-dispatcher-dlq, maxReceive=3)"
 echo "              analytics-queue          (analytics-service)"
 echo "              content-status-queue     (scheduler-service status updater)"
 echo "              content-dispatcher-dlq   (DLQ)"
+echo "              ai-processing-queue      (ai-service — analytics.updated consumer)"
 echo ""
 echo " Subscriptions:"
 echo "   creatorflow-events -> post-dispatcher-queue, content-scheduler-queue, analytics-queue"
 echo "   content-published  -> content-status-queue, analytics-queue"
+echo "   analytics-events   -> ai-processing-queue"
 echo ""
 echo " Verify:"
 echo "   aws --endpoint-url=$ENDPOINT --region $REGION sns list-topics"

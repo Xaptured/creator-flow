@@ -53,6 +53,18 @@ spring:
       - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
 
+  quartz:
+    job-store-type: memory
+    auto-startup: true
+    overwrite-existing-jobs: true
+    properties:
+      org:
+        quartz:
+          threadPool:
+            threadCount: 5
+
+  scheduling:
+    enabled: true
 
 server:
   port: ${ANALYTICS_SERVER_PORT}
@@ -89,3 +101,12 @@ app:
     capacity: 100
     refill-tokens: 100
     refill-period-seconds: 60
+  aws:
+    endpoint-override: ${AWS_ENDPOINT_OVERRIDE}
+    region: ${AWS_REGION}
+    queues:
+      analytics: ${AWS_SQS_QUEUE_ANALYTICS}
+    topics:
+      analytics-events: ${AWS_SNS_TOPIC_ANALYTICS_EVENTS}
+  sqs:
+    poll-delay-ms: ${SQS_POLL_DELAY_MS}
