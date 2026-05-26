@@ -38,7 +38,7 @@ public class InstagramInsightsAdapter implements PlatformAdapter {
     }
 
     @Override
-    public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId) {
+    public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId, String platformPostId) {
         String tokenKey = String.format(TOKEN_KEY_PATTERN, ownerId);
         String accessToken = redisTemplate.opsForValue().get(tokenKey);
 
@@ -47,8 +47,8 @@ public class InstagramInsightsAdapter implements PlatformAdapter {
             return PlatformMetrics.of(0L, 0L, 0L, 0L);
         }
 
-        // TODO: call Instagram Graph API /media/{id}/insights
-        log.info("Instagram metrics fetch stub — contentId: {}, ownerId: {}", contentId, ownerId);
+        // TODO (CF-100): call Instagram Graph API GET /{platformPostId}/insights using accessToken
+        log.info("Instagram metrics fetch stub — contentId: {}, ownerId: {}, mediaId: {}", contentId, ownerId, platformPostId);
         return PlatformMetrics.of(0L, 0L, 0L, 0L);
     }
 }

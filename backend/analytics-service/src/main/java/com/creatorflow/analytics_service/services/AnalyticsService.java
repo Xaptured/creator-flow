@@ -46,20 +46,22 @@ public class AnalyticsService {
      * Fetch metrics from the platform, persist a snapshot row, then publish
      * {@code analytics.updated} event to SNS.
      *
-     * @param contentId   UUID of the content
-     * @param ownerId     UUID of the content owner
-     * @param platform    target platform
-     * @param windowHours 1, 24, or 168
+     * @param contentId      UUID of the content
+     * @param ownerId        UUID of the content owner
+     * @param platform       target platform
+     * @param platformPostId platform-native post ID (e.g. YouTube videoId, tweet ID, IG media ID); may be null
+     * @param windowHours    1, 24, or 168
      */
     @Transactional
-    public void fetchAndRecord(UUID contentId, UUID ownerId, PlatformType platform, int windowHours) {
+    public void fetchAndRecord(UUID contentId, UUID ownerId, PlatformType platform,
+                               String platformPostId, int windowHours) {
         PlatformAdapter adapter = adapters.get(platform);
         if (adapter == null) {
             log.error("No adapter registered for platform: {}", platform);
             return;
         }
 
-        PlatformMetrics metrics = adapter.fetchMetrics(contentId, ownerId);
+        PlatformMetrics metrics = adapter.fetchMetrics(contentId, ownerId, platformPostId);
 
         AnalyticsSnapshot snapshot = buildSnapshot(contentId, ownerId, platform, windowHours, metrics);
         snapshotRepository.save(snapshot);

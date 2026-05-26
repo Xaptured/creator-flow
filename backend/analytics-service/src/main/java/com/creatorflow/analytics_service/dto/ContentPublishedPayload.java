@@ -15,5 +15,6 @@ public class ContentPublishedPayload {
     private UUID contentId;
     private UUID ownerId;
     private String platform;
+    private String platformPostId;
     private String finalStatus;
 }

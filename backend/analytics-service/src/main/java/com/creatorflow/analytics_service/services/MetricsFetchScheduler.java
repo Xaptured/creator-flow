@@ -33,21 +33,24 @@ public class MetricsFetchScheduler {
      * Schedule metric fetch jobs for the given content on the given platform.
      * 3 jobs are created — one per window (1hr / 24hr / 7d from now).
      *
-     * @param contentId UUID of the published content
-     * @param ownerId   UUID of the content owner
-     * @param platform  platform the content was published to
+     * @param contentId      UUID of the published content
+     * @param ownerId        UUID of the content owner
+     * @param platform       platform the content was published to
+     * @param platformPostId platform-native post ID (e.g. YouTube videoId, tweet ID, IG media ID); may be null
      */
-    public void scheduleMetricFetches(UUID contentId, UUID ownerId, PlatformType platform) {
+    public void scheduleMetricFetches(UUID contentId, UUID ownerId, PlatformType platform, String platformPostId) {
         Instant now = Instant.now();
 
         for (int windowHours : WINDOW_HOURS) {
-            scheduleJob(contentId, ownerId, platform, windowHours, now);
+            scheduleJob(contentId, ownerId, platform, platformPostId, windowHours, now);
         }
 
-        log.info("Scheduled 3 metric fetch jobs — contentId: {}, platform: {}", contentId, platform);
+        log.info("Scheduled 3 metric fetch jobs — contentId: {}, platform: {}, platformPostId: {}",
+                contentId, platform, platformPostId);
     }
 
-    private void scheduleJob(UUID contentId, UUID ownerId, PlatformType platform, int windowHours, Instant from) {
+    private void scheduleJob(UUID contentId, UUID ownerId, PlatformType platform, String platformPostId,
+                              int windowHours, Instant from) {
         String jobKey = String.format("metrics-%s-%s-%dh", contentId, platform.name().toLowerCase(), windowHours);
 
         JobDataMap dataMap = new JobDataMap();
@@ -55,6 +58,9 @@ public class MetricsFetchScheduler {
         dataMap.put(MetricsFetchJob.KEY_OWNER_ID, ownerId.toString());
         dataMap.put(MetricsFetchJob.KEY_PLATFORM, platform.name());
         dataMap.put(MetricsFetchJob.KEY_WINDOW_HOURS, windowHours);
+        if (platformPostId != null) {
+            dataMap.put(MetricsFetchJob.KEY_PLATFORM_POST_ID, platformPostId);
+        }
 
         JobDetail jobDetail = JobBuilder.newJob(MetricsFetchJob.class)
                 .withIdentity(jobKey, "analytics")

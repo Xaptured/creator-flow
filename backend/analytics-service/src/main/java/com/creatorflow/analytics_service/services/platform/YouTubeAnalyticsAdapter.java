@@ -40,7 +40,7 @@ public class YouTubeAnalyticsAdapter implements PlatformAdapter {
     }
 
     @Override
-    public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId) {
+    public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId, String platformPostId) {
         String tokenKey = String.format(TOKEN_KEY_PATTERN, ownerId);
         String accessToken = redisTemplate.opsForValue().get(tokenKey);
 
@@ -49,9 +49,9 @@ public class YouTubeAnalyticsAdapter implements PlatformAdapter {
             return PlatformMetrics.of(0L, 0L, 0L, 0L);
         }
 
-        // TODO: call YouTube Analytics Data API v2 using accessToken
+        // TODO (CF-99): call YouTube Analytics Data API v2 using accessToken + platformPostId (videoId)
         // For now return stub zeros so the pipeline keeps running
-        log.info("YouTube metrics fetch stub — contentId: {}, ownerId: {}", contentId, ownerId);
+        log.info("YouTube metrics fetch stub — contentId: {}, ownerId: {}, videoId: {}", contentId, ownerId, platformPostId);
         return PlatformMetrics.of(0L, 0L, 0L, 0L);
     }
 }

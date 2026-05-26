@@ -11,7 +11,8 @@ import java.util.UUID;
  * emitted by media-service's PublishDispatcherProcessor after attempting platform publish.
  *
  * <p>Consumed by scheduler-service's ContentStatusUpdater to transition the content
- * row from PUBLISHING to its final status (PUBLISHED or FAILED).</p>
+ * row from PUBLISHING to its final status (PUBLISHED or FAILED), and by
+ * analytics-service to schedule metric fetch jobs.</p>
  */
 @Getter
 @NoArgsConstructor
@@ -19,6 +20,8 @@ import java.util.UUID;
 public class ContentPublishedPayload {
     private UUID contentId;
     private UUID ownerId;
+    private String platform;
+    private String platformPostId;
     /** Final status string: {@code "PUBLISHED"} or {@code "FAILED"}. */
     private String finalStatus;
 }

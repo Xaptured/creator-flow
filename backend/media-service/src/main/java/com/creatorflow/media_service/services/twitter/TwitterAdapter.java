@@ -3,10 +3,12 @@ package com.creatorflow.media_service.services.twitter;
 import com.creatorflow.media_service.model.Content;
 import com.creatorflow.media_service.model.PlatformAccount;
 import com.creatorflow.media_service.model.PlatformType;
+import com.creatorflow.media_service.repository.ContentRepository;
 import com.creatorflow.media_service.services.PlatformAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -23,11 +25,14 @@ public class TwitterAdapter implements PlatformAdapter {
 
     private final TwitterOAuthService twitterOAuthService;
     private final TwitterPublishService twitterPublishService;
+    private final ContentRepository contentRepository;
 
     public TwitterAdapter(TwitterOAuthService twitterOAuthService,
-                          TwitterPublishService twitterPublishService) {
+                          TwitterPublishService twitterPublishService,
+                          ContentRepository contentRepository) {
         this.twitterOAuthService = twitterOAuthService;
         this.twitterPublishService = twitterPublishService;
+        this.contentRepository = contentRepository;
     }
 
     @Override
@@ -45,9 +50,16 @@ public class TwitterAdapter implements PlatformAdapter {
         return twitterOAuthService.handleCallback(code, state);
     }
 
+    /**
+     * @return Twitter tweet ID for inclusion in the CONTENT_PUBLISHED event payload.
+     */
     @Override
-    public void publish(UUID ownerId, Content content) {
+    @Transactional
+    public String publish(UUID ownerId, Content content) {
         String tweetId = twitterPublishService.publish(ownerId, content);
+        content.setPlatformPostId(tweetId);
+        contentRepository.save(content);
         log.info("TwitterAdapter.publish done: ownerId={} contentId={} tweetId={}", ownerId, content.getId(), tweetId);
+        return tweetId;
     }
 }

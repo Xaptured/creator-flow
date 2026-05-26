@@ -53,6 +53,9 @@ public class Content {
     @Column(name = "media_file_id")
     private UUID mediaFileId;
 
+    @Column(name = "platform_post_id", length = 255)
+    private String platformPostId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
