@@ -5,7 +5,8 @@ import { AnalyticsSnapshot } from './model/snapshot.model.js';
 
 /**
  * Internal-only analytics read service.
- * No HTTP controller -- consumed by AiModule to build Claude prompts.
+ * No HTTP ingest — analytics-service owns all metric writes.
+ * Consumed by AiModule to build Claude prompts.
  */
 @Injectable()
 export class AnalyticsService {

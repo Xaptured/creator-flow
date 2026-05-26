@@ -11,7 +11,7 @@ export const GET_RECENT_SNAPSHOTS = `
   JOIN content c ON c.id = a.content_id
   WHERE c.owner_id = $1
   ORDER BY a.snapshot_at DESC
-  LIMIT 10
+  LIMIT 30
 `;
 
 export const GET_TOP_POSTS = `
@@ -27,5 +27,4 @@ export const GET_TOP_POSTS = `
   JOIN content c ON c.id = a.content_id
   WHERE c.owner_id = $1
   ORDER BY a.content_id, a.snapshot_at DESC, (a.views + a.likes + a.comments) DESC
-  LIMIT 10
 `;

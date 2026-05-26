@@ -97,6 +97,7 @@ describe('AnalyticsService', () => {
 
       expect(result).toHaveLength(2);
       expect(result[0].views).toBe(9000);
+      expect(result[1].views).toBe(3000);
     });
   });
 });
