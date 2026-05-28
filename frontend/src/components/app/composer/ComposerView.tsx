@@ -194,7 +194,7 @@ export default function ComposerView() {
 
   async function handleSubmit(publishNow: boolean) {
     if (!title.trim()) return
-    if (selectedPlatforms.size === 0) return
+    if (selectedPlatform === null) return
     setSubmitting(true)
     setSubmitError(null)
     setResults(null)
