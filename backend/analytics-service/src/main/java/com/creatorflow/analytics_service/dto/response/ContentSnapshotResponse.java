@@ -16,5 +16,6 @@ public record ContentSnapshotResponse(
         Long impressions,
         BigDecimal engagementRate,
         int windowHours,
+        String windowLabel,
         Instant fetchedAt
 ) {}

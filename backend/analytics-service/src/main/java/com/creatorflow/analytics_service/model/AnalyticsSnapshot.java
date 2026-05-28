@@ -44,9 +44,12 @@ public class AnalyticsSnapshot {
     @Column(name = "engagement_rate", precision = 5, scale = 4)
     private BigDecimal engagementRate;
 
-    /** 1, 24, or 168 (7 days in hours) */
+    /** Number of hours after content live time at which this snapshot was taken. */
     @Column(name = "window_hours", nullable = false)
     private int windowHours;
+    
+    @Column(name = "window_label", length = 20)
+    private String windowLabel;
 
     @Column(name = "fetched_at", nullable = false)
     private Instant fetchedAt;
@@ -90,6 +93,9 @@ public class AnalyticsSnapshot {
 
     public int getWindowHours() { return windowHours; }
     public void setWindowHours(int windowHours) { this.windowHours = windowHours; }
+
+    public String getWindowLabel() { return windowLabel; }
+    public void setWindowLabel(String windowLabel) { this.windowLabel = windowLabel; }
 
     public Instant getFetchedAt() { return fetchedAt; }
     public void setFetchedAt(Instant fetchedAt) { this.fetchedAt = fetchedAt; }

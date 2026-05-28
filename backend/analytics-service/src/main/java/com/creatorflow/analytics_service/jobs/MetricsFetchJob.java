@@ -25,11 +25,12 @@ public class MetricsFetchJob implements Job {
 
     private static final Logger log = LoggerFactory.getLogger(MetricsFetchJob.class);
 
-    public static final String KEY_CONTENT_ID = "contentId";
-    public static final String KEY_OWNER_ID = "ownerId";
-    public static final String KEY_PLATFORM = "platform";
+    public static final String KEY_CONTENT_ID       = "contentId";
+    public static final String KEY_OWNER_ID         = "ownerId";
+    public static final String KEY_PLATFORM         = "platform";
     public static final String KEY_PLATFORM_POST_ID = "platformPostId";
-    public static final String KEY_WINDOW_HOURS = "windowHours";
+    public static final String KEY_WINDOW_HOURS     = "windowHours";
+    public static final String KEY_WINDOW_LABEL     = "windowLabel";
 
     @Autowired
     private AnalyticsService analyticsService;
@@ -38,17 +39,18 @@ public class MetricsFetchJob implements Job {
     public void execute(JobExecutionContext context) throws JobExecutionException {
         JobDataMap data = context.getMergedJobDataMap();
 
-        UUID contentId = UUID.fromString(data.getString(KEY_CONTENT_ID));
-        UUID ownerId = UUID.fromString(data.getString(KEY_OWNER_ID));
+        UUID contentId       = UUID.fromString(data.getString(KEY_CONTENT_ID));
+        UUID ownerId         = UUID.fromString(data.getString(KEY_OWNER_ID));
         PlatformType platform = PlatformType.valueOf(data.getString(KEY_PLATFORM));
         String platformPostId = data.getString(KEY_PLATFORM_POST_ID);
-        int windowHours = data.getInt(KEY_WINDOW_HOURS);
+        int windowHours       = data.getInt(KEY_WINDOW_HOURS);
+        String windowLabel    = data.getString(KEY_WINDOW_LABEL);
 
-        log.info("MetricsFetchJob executing — contentId: {}, platform: {}, platformPostId: {}, window: {}h",
-                contentId, platform, platformPostId, windowHours);
+        log.info("MetricsFetchJob executing — contentId: {}, platform: {}, platformPostId: {}, window: {}h ({})",
+                contentId, platform, platformPostId, windowHours, windowLabel);
 
         try {
-            analyticsService.fetchAndRecord(contentId, ownerId, platform, platformPostId, windowHours);
+            analyticsService.fetchAndRecord(contentId, ownerId, platform, platformPostId, windowHours, windowLabel);
         } catch (Exception e) {
             log.error("MetricsFetchJob failed — contentId: {}, platform: {}, window: {}h",
                     contentId, platform, windowHours, e);

@@ -14,6 +14,8 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
 import software.amazon.awssdk.services.sqs.model.Message;
 
+import java.time.Instant;
+
 /**
  * Handles transactional processing of a single SQS message from
  * {@code analytics-queue}.
@@ -78,10 +80,12 @@ public class AnalyticsQueueProcessor {
                 return;
             }
 
+            Instant liveAt = resolveLiveAt(payload, sqsMessage.messageId());
+
             metricsFetchScheduler.scheduleMetricFetches(
-                    payload.getContentId(), payload.getOwnerId(), platform, payload.getPlatformPostId());
-            log.info("analytics-queue: scheduled metric fetch jobs — contentId: {}, platform: {}, platformPostId: {}",
-                    payload.getContentId(), platform, payload.getPlatformPostId());
+                    payload.getContentId(), payload.getOwnerId(), platform, payload.getPlatformPostId(), liveAt);
+            log.info("analytics-queue: scheduled metric fetch jobs — contentId: {}, platform: {}, platformPostId: {}, liveAt: {}",
+                    payload.getContentId(), platform, payload.getPlatformPostId(), liveAt);
 
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
 
@@ -95,6 +99,25 @@ public class AnalyticsQueueProcessor {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Resolves T=0 for window scheduling.
+     *
+     * <p>Uses {@code payload.getScheduledLiveAt()} when present — this is the
+     * user-confirmed time the content went live on the platform.  Falls back to
+     * {@code Instant.now()} for legacy events that pre-date this field, logging a
+     * warning so we can monitor how often the fallback fires during the rollout.</p>
+     */
+    private Instant resolveLiveAt(ContentPublishedPayload payload, String messageId) {
+        if (payload.getScheduledLiveAt() != null) {
+            return payload.getScheduledLiveAt();
+        }
+        log.warn("analytics-queue: scheduledLiveAt missing in CONTENT_PUBLISHED payload — "
+                + "falling back to Instant.now(). contentId: {}, platform: {}, messageId: {}. "
+                + "Ensure the publisher sets scheduledLiveAt on all new events.",
+                payload.getContentId(), payload.getPlatform(), messageId);
+        return Instant.now();
+    }
 
     /**
      * SNS wraps messages in a notification envelope when delivering to SQS:
