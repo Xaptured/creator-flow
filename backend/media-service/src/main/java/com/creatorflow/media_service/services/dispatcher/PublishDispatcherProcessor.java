@@ -45,15 +45,26 @@ import java.util.UUID;
  * <li>Deserialise payload to get contentId, ownerId, platformTargets.</li>
  * <li>Look up the content row (owned by ownerId) — skip stale messages.</li>
  * <li>Resolve the single platform from platformTargets.</li>
- * <li>Call {@link PlatformAdapter#publish(UUID, Content)} for that
- * platform.</li>
- * <li>Emit {@code CONTENT_PUBLISHED} or {@code CONTENT_FAILED} to SNS.</li>
- * <li>Delete SQS message on success; leave it on failure for DLQ retry.</li>
+ * <li>Call {@link PlatformAdapter#publish(UUID, Content)} for that platform.</li>
+ * <li>On success: write {@code PUBLISHED} + platformPostId directly to DB, then emit
+ *     {@code CONTENT_PUBLISHED} to SNS (analytics fan-out), then delete the SQS message.</li>
+ * <li>On non-retryable failure (invalid_grant, empty targets): write {@code FAILED} to DB,
+ *     emit {@code CONTENT_FAILED} to SNS, delete the SQS message.</li>
+ * <li>On retryable failure (transient errors): do NOT write to DB, do NOT emit SNS,
+ *     do NOT delete — SQS visibility timeout drives retry up to maxReceiveCount, then DLQ.</li>
  * </ol>
  *
  * <p>
- * Scheduler-service's ContentStatusUpdater listens on the result events and
- * transitions the content row status — no HTTP call needed between services.
+ * media-service is the single writer for {@code content.status} after publish.
+ * scheduler-service's ContentStatusListener/ContentStatusProcessor have been removed (CF-103).
+ * The SNS {@code CONTENT_PUBLISHED} event is retained solely for analytics-service fan-out.
+ * </p>
+ *
+ * <p>
+ * Instagram is handled differently: {@link PlatformAdapter#publish} records an
+ * {@code IgContainerTracking} row and returns {@code null}. The
+ * {@code IgContainerPollingJob} polls until the container is ready, then writes
+ * status to DB and emits SNS itself.
  * </p>
  */
 @Slf4j
@@ -120,6 +131,7 @@ public class PublishDispatcherProcessor {
         List<PlatformType> targets = deserialisePlatformTargets(payload.getPlatformTargets());
         if (targets.isEmpty()) {
             log.error("publish-dispatcher: empty platformTargets for contentId: {} — treating as failure", contentId);
+            updateContentStatus(content, ContentStatus.FAILED, null);
             emitStatusEvent(EVENT_FAILED, contentId, ownerId, null, null);
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
             return;
@@ -140,27 +152,42 @@ public class PublishDispatcherProcessor {
                 return;
             }
 
+            // Success: media-service writes status directly — no round-trip via SNS (CF-103).
+            // SNS event is still emitted for analytics-service fan-out only.
+            updateContentStatus(content, ContentStatus.PUBLISHED, platformPostId);
             log.info("publish-dispatcher: published to {} — contentId: {}", platform, contentId);
             emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId, platform, platformPostId);
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
         } catch (OAuthTokenExchangeException e) {
             if (e.isInvalidGrant()) {
+                // Non-retryable: token permanently revoked — write FAILED, emit SNS, delete.
                 log.error(
                         "publish-dispatcher: OAuth token revoked (invalid_grant) — platform: {}, contentId: {}, ownerId: {} — marking FAILED, deleting message",
                         platform, contentId, ownerId, e);
+                updateContentStatus(content, ContentStatus.FAILED, null);
                 emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
                 deleteMessage(queueUrl, sqsMessage.receiptHandle());
             } else {
-                log.error("publish-dispatcher: transient OAuth error — platform: {}, contentId: {}",
+                // Transient OAuth error — do not write DB, do not emit SNS, do not delete.
+                // SQS visibility timeout drives retry up to maxReceiveCount, then DLQ.
+                log.error("publish-dispatcher: transient OAuth error — platform: {}, contentId: {} — will retry",
                         platform, contentId, e);
-                emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
             }
         } catch (Exception e) {
-            log.error("publish-dispatcher: platform publish failed — platform: {}, contentId: {}",
+            // Transient failure — do not write DB, do not emit SNS, do not delete.
+            // SQS visibility timeout drives retry up to maxReceiveCount, then DLQ.
+            log.error("publish-dispatcher: platform publish failed — platform: {}, contentId: {} — will retry",
                     platform, contentId, e);
-            emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
-            // Do NOT delete — leave for SQS visibility timeout + maxReceiveCount=3 → DLQ.
         }
+    }
+
+    private void updateContentStatus(Content content, ContentStatus newStatus, String platformPostId) {
+        content.setStatus(newStatus);
+        if (platformPostId != null) {
+            content.setPlatformPostId(platformPostId);
+        }
+        contentRepository.save(content);
+        log.debug("publish-dispatcher: content {} status → {}, platformPostId={}", content.getId(), newStatus, platformPostId);
     }
 
     private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId,
