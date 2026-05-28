@@ -8,7 +8,7 @@ import {
   Typography,
   TextField,
   Button,
-  Checkbox,
+  Radio,
   FormControlLabel,
   Chip,
   CircularProgress,
@@ -109,7 +109,7 @@ export default function ComposerView() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<PlatformType>>(new Set())
+  const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime)
   const [mediaFileId, setMediaFileId] = useState<string | null>(null)
   const [mediaFileName, setMediaFileName] = useState<string | null>(null)
@@ -140,7 +140,7 @@ export default function ComposerView() {
         setTitle(post.title)
         setDescription(post.description ?? '')
         setMediaFileId(post.mediaFileId ?? null)
-        setSelectedPlatforms(new Set(post.platformTargets))
+        setSelectedPlatform((post.platformTargets?.[0] as PlatformType) ?? null)
         setPostStatus(post.status)
         if (post.scheduledAt) {
           setScheduledAt(toLocalDatetimeLocal(post.scheduledAt, userTimezone))
@@ -168,12 +168,8 @@ export default function ComposerView() {
     .filter((s) => s.connected && (!s.tokenExpiry || new Date(s.tokenExpiry) > new Date()))
     .map((s) => s.platform as PlatformType)
 
-  function togglePlatform(p: PlatformType) {
-    setSelectedPlatforms((prev) => {
-      const next = new Set(prev)
-      if (next.has(p)) { next.delete(p) } else { next.add(p) }
-      return next
-    })
+  function selectPlatform(p: PlatformType) {
+    setSelectedPlatform(p)
   }
 
   function handleMediaSelect(file: MediaFile) {
@@ -198,7 +194,7 @@ export default function ComposerView() {
 
   async function handleSubmit(publishNow: boolean) {
     if (!title.trim()) return
-    if (selectedPlatforms.size === 0) return
+    if (selectedPlatform === null) return
     setSubmitting(true)
     setSubmitError(null)
     setResults(null)
@@ -213,7 +209,7 @@ export default function ComposerView() {
           title: title.trim(),
           description: description.trim() || undefined,
           mediaFileId: mediaFileId ?? undefined,
-          platformTargets: Array.from(selectedPlatforms),
+          platformTargets: selectedPlatform ? [selectedPlatform] : [],
           scheduledAt: scheduledAtUtc,
         })
         setEditSuccess(true)
@@ -226,7 +222,7 @@ export default function ComposerView() {
           title: title.trim(),
           description: description.trim() || undefined,
           mediaFileId: mediaFileId ?? undefined,
-          platformTargets: Array.from(selectedPlatforms),
+          platformTargets: selectedPlatform ? [selectedPlatform] : [],
           scheduledAt: scheduledAtUtc,
         })
         setResults(res)
@@ -246,8 +242,12 @@ export default function ComposerView() {
   const editReady = !isEditMode || (!editLoading && !editLoadError)
   const isPublished = isEditMode && (postStatus === ContentStatus.PUBLISHED || postStatus === ContentStatus.PUBLISHING)
   const isFailed = isEditMode && postStatus === ContentStatus.FAILED
+  const isYouTubeSelected = selectedPlatform === PlatformType.YOUTUBE
+
   // PUBLISHED/PUBLISHING: read-only, no save. FAILED/SCHEDULED/DRAFT: editable.
-  const canSubmit = title.trim().length > 0 && selectedPlatforms.size > 0 && !submitting && preferencesLoaded && editReady && !isPublished
+  const baseCanSubmit = title.trim().length > 0 && selectedPlatform !== null && !submitting && preferencesLoaded && editReady && !isPublished
+  const canSchedule = baseCanSubmit && !isYouTubeSelected
+  const canPublishNow = baseCanSubmit
   // Delete allowed in edit mode for any status except PUBLISHING/PUBLISHED
   const canDelete = isEditMode && !isPublished && !deleting && editReady
 
@@ -397,25 +397,46 @@ export default function ComposerView() {
                 {connectedPlatforms.map((p) => (
                   <FormControlLabel
                     key={p}
-                    control={<Checkbox checked={selectedPlatforms.has(p)} onChange={() => togglePlatform(p)} sx={{ color: 'var(--th-text-tertiary)', '&.Mui-checked': { color: 'var(--cf-blue)' } }} />}
+                    control={
+                      <Radio
+                        checked={selectedPlatform === p}
+                        onChange={() => selectPlatform(p)}
+                        sx={{ color: 'var(--th-text-tertiary)', '&.Mui-checked': { color: 'var(--cf-blue)' } }}
+                      />
+                    }
                     label={<Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-secondary)', letterSpacing: '-0.224px' }}>{PLATFORM_LABELS[p]}</Typography>}
                   />
                 ))}
-                {isEditMode && Array.from(selectedPlatforms)
-                  .filter((p) => !connectedPlatforms.includes(p))
-                  .map((p) => (
-                    <FormControlLabel
-                      key={p}
-                      control={<Checkbox checked disabled sx={{ color: 'var(--th-text-tertiary)', '&.Mui-checked': { color: 'var(--th-text-tertiary)' } }} />}
-                      label={
-                        <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-tertiary)', letterSpacing: '-0.224px' }}>
-                          {PLATFORM_LABELS[p] ?? p} (disconnected)
-                        </Typography>
-                      }
-                    />
-                  ))
-                }
+                {isEditMode && selectedPlatform && !connectedPlatforms.includes(selectedPlatform) && (
+                  <FormControlLabel
+                    key={selectedPlatform}
+                    control={<Radio checked disabled sx={{ color: 'var(--th-text-tertiary)', '&.Mui-checked': { color: 'var(--th-text-tertiary)' } }} />}
+                    label={
+                      <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 14, color: 'var(--th-text-tertiary)', letterSpacing: '-0.224px' }}>
+                        {PLATFORM_LABELS[selectedPlatform] ?? selectedPlatform} (disconnected)
+                      </Typography>
+                    }
+                  />
+                )}
               </Box>
+            )}
+            {isYouTubeSelected && (
+              <Alert
+                severity="warning"
+                sx={{
+                  mt: 2,
+                  fontFamily: 'var(--cf-font-text)',
+                  fontSize: 13,
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(255,179,0,0.08)',
+                  color: '#ffb300',
+                  border: '1px solid rgba(255,179,0,0.3)',
+                  '& .MuiAlert-icon': { color: '#ffb300' },
+                  '& .MuiAlert-message': { lineHeight: 1.55 },
+                }}
+              >
+                <strong>YouTube works differently.</strong> We don&apos;t publish directly to YouTube — you upload and go live in YouTube Studio yourself. Use the &quot;YouTube Video Live Time&quot; field below to tell us when your video went live (or will go live). We&apos;ll start pulling your analytics 72 hours after that time, when YouTube&apos;s data becomes accurate. <strong>Schedule Post is not available for YouTube</strong> — click <strong>Confirm Live Time</strong> once you&apos;ve set the date.
+              </Alert>
             )}
             <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mt: 1.5 }}>
               Only connected platforms are shown.
@@ -424,8 +445,10 @@ export default function ComposerView() {
 
           <Box sx={cardSx}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <ScheduleOutlinedIcon sx={{ fontSize: 18, color: 'var(--cf-blue)' }} />
-              <Typography sx={sectionLabelSx}>Schedule</Typography>
+              <ScheduleOutlinedIcon sx={{ fontSize: 18, color: isYouTubeSelected ? '#ffb300' : 'var(--cf-blue)' }} />
+              <Typography sx={{ ...sectionLabelSx, mb: 0 }}>
+                {isYouTubeSelected ? 'YouTube Video Live Time' : 'Schedule'}
+              </Typography>
             </Box>
             <TextField
               type="datetime-local"
@@ -435,11 +458,15 @@ export default function ComposerView() {
               sx={inputSx}
               InputLabelProps={{ shrink: true }}
             />
-            {preferences?.timezone && preferences.timezone !== 'UTC' && (
+            {isYouTubeSelected ? (
+              <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 11, color: '#ffb300', letterSpacing: '-0.08px', mt: 0.75, lineHeight: 1.5 }}>
+                Enter when your video went live (or will go live) on YouTube Studio. Analytics tracking starts 72 hours after this time.
+              </Typography>
+            ) : preferences?.timezone && preferences.timezone !== 'UTC' ? (
               <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 11, color: 'var(--th-text-tertiary)', letterSpacing: '-0.08px', mt: 0.75 }}>
                 Times are in {preferences.timezone}
               </Typography>
-            )}
+            ) : null}
           </Box>
 
           {editSuccess && (
@@ -478,20 +505,38 @@ export default function ComposerView() {
           )}
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Button
-              variant="contained"
-              fullWidth
-              disabled={!canSubmit}
-              onClick={() => handleSubmit(false)}
-              sx={{ backgroundColor: 'var(--cf-blue)', color: '#ffffff', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', boxShadow: 'none', '&:hover': { backgroundColor: '#0077ed', boxShadow: 'none' }, '&.Mui-disabled': { backgroundColor: 'rgba(0,113,227,0.4)', color: 'rgba(255,255,255,0.6)' } }}
-            >
-              {submitting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : isEditMode ? 'Save Changes' : 'Schedule Post'}
-            </Button>
-            {!isEditMode && (
+            {/* Schedule Post — hidden when YouTube is selected (YouTube has no schedule flow) */}
+            {!isYouTubeSelected && (
+              <Button
+                variant="contained"
+                fullWidth
+                disabled={!canSchedule}
+                onClick={() => handleSubmit(false)}
+                sx={{ backgroundColor: 'var(--cf-blue)', color: '#ffffff', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', boxShadow: 'none', '&:hover': { backgroundColor: '#0077ed', boxShadow: 'none' }, '&.Mui-disabled': { backgroundColor: 'rgba(0,113,227,0.4)', color: 'rgba(255,255,255,0.6)' } }}
+              >
+                {submitting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : isEditMode ? 'Save Changes' : 'Schedule Post'}
+              </Button>
+            )}
+
+            {/* YouTube primary action — "Confirm Live Time" replaces both buttons */}
+            {isYouTubeSelected && (
+              <Button
+                variant="contained"
+                fullWidth
+                disabled={!canPublishNow}
+                onClick={() => handleSubmit(true)}
+                sx={{ backgroundColor: '#ffb300', color: '#000', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 500, borderRadius: '8px', py: 1.25, textTransform: 'none', boxShadow: 'none', '&:hover': { backgroundColor: '#e6a200', boxShadow: 'none' }, '&.Mui-disabled': { backgroundColor: 'rgba(255,179,0,0.35)', color: 'rgba(0,0,0,0.4)' } }}
+              >
+                {submitting ? <CircularProgress size={16} sx={{ color: '#000' }} /> : 'Confirm Live Time'}
+              </Button>
+            )}
+
+            {/* Publish Now — non-YouTube, create mode only */}
+            {!isEditMode && !isYouTubeSelected && (
               <Button
                 variant="outlined"
                 fullWidth
-                disabled={!canSubmit}
+                disabled={!canPublishNow}
                 onClick={() => handleSubmit(true)}
                 sx={{ borderColor: 'var(--th-border)', color: 'var(--th-text-secondary)', fontFamily: 'var(--cf-font-text)', fontSize: 14, fontWeight: 400, borderRadius: '8px', py: 1.25, textTransform: 'none', '&:hover': { borderColor: 'var(--th-text-secondary)', backgroundColor: 'var(--th-bg-surface)' }, '&.Mui-disabled': { borderColor: 'var(--th-border)', color: 'var(--th-text-tertiary)' } }}
               >
