@@ -101,9 +101,9 @@ public class YouTubeOAuthService {
         youTubeChannelRepository.save(channel);
 
         try {
-            platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+            platformTokenCacheService.warmCache(ownerId, "YOUTUBE");
         } catch (Exception e) {
-            log.warn("Failed to evict YouTube token cache after connect: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+            log.warn("Failed to warm YouTube token cache after connect: ownerId={} — cache will populate on next access", ownerId, e);
         }
 
         log.info("YouTube connected: ownerId={} channel={}", ownerId, channelInfo.channelName());

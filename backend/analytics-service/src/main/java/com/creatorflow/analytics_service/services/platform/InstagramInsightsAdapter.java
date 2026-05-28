@@ -4,12 +4,12 @@ import com.creatorflow.analytics_service.configuration.InstagramProperties;
 import com.creatorflow.analytics_service.dto.PlatformMetrics;
 import com.creatorflow.analytics_service.model.PlatformType;
 import com.creatorflow.analytics_service.services.PlatformAdapter;
+import com.creatorflow.analytics_service.services.PlatformTokenReader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -39,23 +39,22 @@ public class InstagramInsightsAdapter implements PlatformAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(InstagramInsightsAdapter.class);
 
-    private static final String TOKEN_KEY_PATTERN = "oauth:%s:instagram:access_token";
     private static final String API_VERSION = "v19.0";
     private static final String METRICS_PARAM = "impressions,reach,likes,comments,saved";
 
     private static final PlatformMetrics ZERO_METRICS = PlatformMetrics.of(0L, 0L, 0L, 0L);
 
-    private final StringRedisTemplate redisTemplate;
+    private final PlatformTokenReader tokenReader;
     private final HttpClient httpClient;
     private final InstagramProperties instagramProperties;
     private final ObjectMapper objectMapper;
 
     public InstagramInsightsAdapter(
-            StringRedisTemplate redisTemplate,
+            PlatformTokenReader tokenReader,
             @Qualifier("instagramHttpClient") HttpClient httpClient,
             InstagramProperties instagramProperties,
             ObjectMapper objectMapper) {
-        this.redisTemplate = redisTemplate;
+        this.tokenReader = tokenReader;
         this.httpClient = httpClient;
         this.instagramProperties = instagramProperties;
         this.objectMapper = objectMapper;
@@ -72,8 +71,7 @@ public class InstagramInsightsAdapter implements PlatformAdapter {
      */
     @Override
     public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId, String platformPostId) {
-        String tokenKey = String.format(TOKEN_KEY_PATTERN, ownerId);
-        String accessToken = redisTemplate.opsForValue().get(tokenKey);
+        String accessToken = tokenReader.getAccessToken(ownerId, "INSTAGRAM");
 
         if (accessToken == null || accessToken.isBlank()) {
             log.warn("Instagram OAuth token missing for owner {} — returning zero metrics", ownerId);

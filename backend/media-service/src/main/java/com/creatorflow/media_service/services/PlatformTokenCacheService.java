@@ -7,6 +7,8 @@ import com.creatorflow.media_service.repository.PlatformAccountRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -43,13 +45,32 @@ public class PlatformTokenCacheService {
     }
 
     /**
-     * Call this when a creator disconnects a platform.
      * Evicts the cached token immediately so stale data is never served.
+     * Call when a creator disconnects a platform or after a token refresh.
      *
      * Cache key evicted: platformTokens::<ownerId>::<platform>
      */
     @CacheEvict(value = "platformTokens", key = "#ownerId + '::' + #platform")
     public void evictPlatformToken(UUID ownerId, String platform) {
         // Annotation handles the eviction — no DB operation needed
+    }
+
+    /**
+     * Evicts then immediately re-populates the cache from the DB.
+     *
+     * <p>Must be called AFTER the caller's transaction has committed — hence
+     * {@code REQUIRES_NEW}: this opens a fresh transaction that is guaranteed to
+     * see the row written by the caller. Calling {@link #getPlatformAccount} from
+     * inside the caller's own {@code @Transactional} method would read an
+     * uncommitted row and potentially cache stale or absent data.</p>
+     *
+     * <p>Called by OAuth {@code handleCallback} implementations for all three
+     * platforms immediately after connect, so that analytics-service can read the
+     * token from Redis without waiting for a media-service publish call to warm it.</p>
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void warmCache(UUID ownerId, String platform) {
+        evictPlatformToken(ownerId, platform);
+        getPlatformAccount(ownerId, platform);
     }
 }

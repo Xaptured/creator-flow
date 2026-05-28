@@ -133,9 +133,9 @@ public class TwitterOAuthService {
         PlatformAccount saved = platformAccountRepository.save(account);
 
         try {
-            platformTokenCacheService.evictPlatformToken(ownerId, "TWITTER");
+            platformTokenCacheService.warmCache(ownerId, "TWITTER");
         } catch (Exception e) {
-            log.warn("Failed to evict Twitter token cache after connect: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+            log.warn("Failed to warm Twitter token cache after connect: ownerId={} — cache will populate on next access", ownerId, e);
         }
 
         log.info("Twitter connected: ownerId={} twitterUserId={} username={}",
