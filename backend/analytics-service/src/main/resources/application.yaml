@@ -107,8 +107,8 @@ app:
   sqs:
     poll-delay-ms: ${SQS_POLL_DELAY_MS}
   youtube:
-    client-id: ${GOOGLE_YOUTUBE_CLIENT_ID}
-    client-secret: ${GOOGLE_YOUTUBE_CLIENT_SECRET}
     analytics-api-base-url: ${GOOGLE_YOUTUBE_ANALYTICS_API_BASE_URL}
   instagram:
     graph-api-base-url: ${INSTAGRAM_GRAPH_API_BASE_URL}
+  twitter:
+    api-base-url: ${TWITTER_API_BASE_URL}
