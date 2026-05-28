@@ -12,7 +12,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { AnalyticsUpdatedEvent } from './analytics-updated.event.js';
+import {
+  AnalyticsEventMessage,
+  AnalyticsUpdatedEvent,
+  SnsEnvelope,
+} from './analytics-updated.event.js';
 import { DEFAULTS, ENV } from './sqs.constants.js';
 
 /**
@@ -36,8 +40,11 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
   private running = false;
 
   constructor(private readonly config: ConfigService) {
+    const region = this.config.get<string>(ENV.AWS_REGION, DEFAULTS.AWS_REGION);
+    const endpoint = this.config.get<string>(ENV.AWS_SQS_ENDPOINT);
     this.client = new SQSClient({
-      region: this.config.get<string>(ENV.AWS_REGION, DEFAULTS.AWS_REGION),
+      region,
+      ...(endpoint ? { endpoint } : {}),
     });
     this.queueUrl = this.config.getOrThrow<string>(ENV.AI_PROCESSING_QUEUE_URL);
     this.pollingDisabled =
@@ -90,7 +97,7 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
       if (!event) return;
 
       this.logger.log(
-        `analytics.updated received — ownerId=${event.ownerId} contentId=${event.contentId}`,
+        `analytics.updated received — ownerId=${event.ownerId} contentId=${event.contentId} platform=${event.platform}`,
       );
 
       // Trigger embedding pipeline stub.
@@ -98,6 +105,7 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
       await this.triggerEmbeddingPipeline(event);
 
       await this.deleteMessage(message);
+      this.logger.log(`Message deleted — ${message.MessageId ?? 'unknown'}`);
     } catch (err) {
       this.logger.error(
         `Failed to process message ${message.MessageId ?? 'unknown'}`,
@@ -121,20 +129,48 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /**
+   * Unwraps the two-layer envelope that SNS adds when delivering to SQS.
+   *
+   * Layer 1 — SQS message body is an SNS notification envelope:
+   *   { Type: "Notification", Message: "<json string>", ... }
+   *
+   * Layer 2 — SNS envelope.Message is an AnalyticsEventMessage:
+   *   { eventType: "analytics.updated", payload: "<json string>", occurredAt: "..." }
+   *
+   * Layer 3 — AnalyticsEventMessage.payload is the actual AnalyticsUpdatedPayload:
+   *   { ownerId, contentId, platform, metrics }
+   */
   private parseEvent(message: Message): AnalyticsUpdatedEvent | null {
+    const msgId = message.MessageId ?? 'unknown';
     try {
-      const body = JSON.parse(message.Body ?? '{}') as AnalyticsUpdatedEvent;
-      if (!body.ownerId || !body.contentId || !body.snapshotId) {
+      // Layer 1: unwrap SNS envelope
+      const sqsBody = JSON.parse(message.Body ?? '{}') as SnsEnvelope;
+      const rawMessage: string =
+        sqsBody.Type === 'Notification' && sqsBody.Message
+          ? sqsBody.Message
+          : (message.Body ?? '{}');
+
+      // Layer 2: unwrap AnalyticsEventMessage
+      const eventMessage = JSON.parse(rawMessage) as AnalyticsEventMessage;
+      if (!eventMessage.payload) {
         this.logger.warn(
-          `Skipping malformed message ${message.MessageId ?? 'unknown'}`,
+          `Skipping malformed message ${msgId} — missing payload field`,
         );
         return null;
       }
-      return body;
+
+      // Layer 3: parse actual payload
+      const event = JSON.parse(eventMessage.payload) as AnalyticsUpdatedEvent;
+      if (!event.ownerId || !event.contentId || !event.platform) {
+        this.logger.warn(
+          `Skipping malformed message ${msgId} — missing required fields (ownerId/contentId/platform)`,
+        );
+        return null;
+      }
+      return event;
     } catch {
-      this.logger.warn(
-        `Failed to parse message body for ${message.MessageId ?? 'unknown'}`,
-      );
+      this.logger.warn(`Failed to parse message body for ${msgId}`);
       return null;
     }
   }

@@ -1,6 +1,8 @@
 package com.creatorflow.analytics_service.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcType;
+import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -25,7 +27,8 @@ public class AnalyticsSnapshot {
     private UUID ownerId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "platform", nullable = false, length = 20)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "platform", nullable = false, columnDefinition = "platform_type")
     private PlatformType platform;
 
     @Column(name = "views")

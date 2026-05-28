@@ -2,9 +2,7 @@ package com.creatorflow.analytics_service.services;
 
 import com.creatorflow.analytics_service.dto.AnalyticsEventMessage;
 import com.creatorflow.analytics_service.dto.AnalyticsUpdatedPayload;
-import com.creatorflow.analytics_service.model.AnalyticsSnapshot;
 import com.creatorflow.analytics_service.model.PlatformType;
-import com.creatorflow.analytics_service.repository.AnalyticsSnapshotRepository;
 import com.creatorflow.analytics_service.dto.PlatformMetrics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,9 +10,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,16 +22,16 @@ public class AnalyticsService {
 
     private static final Logger log = LoggerFactory.getLogger(AnalyticsService.class);
 
-    private final AnalyticsSnapshotRepository snapshotRepository;
+    private final AnalyticsSnapshotWriter snapshotWriter;
     private final AnalyticsSnsPublisher snsPublisher;
     private final Map<PlatformType, PlatformAdapter> adapters;
     private final ObjectMapper objectMapper;
 
     public AnalyticsService(
-            AnalyticsSnapshotRepository snapshotRepository,
+            AnalyticsSnapshotWriter snapshotWriter,
             AnalyticsSnsPublisher snsPublisher,
             List<PlatformAdapter> platformAdapters) {
-        this.snapshotRepository = snapshotRepository;
+        this.snapshotWriter = snapshotWriter;
         this.snsPublisher = snsPublisher;
         this.adapters = platformAdapters.stream()
                 .collect(Collectors.toMap(PlatformAdapter::platform, Function.identity()));
@@ -46,6 +42,12 @@ public class AnalyticsService {
      * Fetch metrics from the platform, persist a snapshot row, then publish
      * {@code analytics.updated} event to SNS.
      *
+     * <p>The DB save and SNS publish are intentionally <em>not</em> in the same
+     * transaction.  {@link #saveSnapshot} commits first; only then is the SNS
+     * event published.  This guarantees the snapshot row survives even if the
+     * SNS call fails — the data is never silently rolled back by a downstream
+     * infrastructure error.</p>
+     *
      * @param contentId      UUID of the content
      * @param ownerId        UUID of the content owner
      * @param platform       target platform
@@ -53,7 +55,6 @@ public class AnalyticsService {
      * @param windowHours    hours after content live time at which this snapshot is taken
      * @param windowLabel    human-readable label, e.g. "1 hour", "3 days", "30 days"
      */
-    @Transactional
     public void fetchAndRecord(UUID contentId, UUID ownerId, PlatformType platform,
                                String platformPostId, int windowHours, String windowLabel) {
         PlatformAdapter adapter = adapters.get(platform);
@@ -64,30 +65,12 @@ public class AnalyticsService {
 
         PlatformMetrics metrics = adapter.fetchMetrics(contentId, ownerId, platformPostId);
 
-        AnalyticsSnapshot snapshot = buildSnapshot(contentId, ownerId, platform, windowHours, windowLabel, metrics);
-        snapshotRepository.save(snapshot);
-        log.info("Analytics snapshot saved — contentId: {}, platform: {}, window: {}h ({})",
-                contentId, platform, windowHours, windowLabel);
+        // Commit the snapshot row before touching SNS — a downstream SNS failure must
+        // never roll back persisted analytics data. AnalyticsSnapshotWriter is a
+        // separate Spring bean so its @Transactional boundary is honoured correctly.
+        snapshotWriter.save(contentId, ownerId, platform, windowHours, windowLabel, metrics);
 
         publishAnalyticsUpdatedEvent(ownerId, contentId, platform, metrics, windowHours);
-    }
-
-    private AnalyticsSnapshot buildSnapshot(
-            UUID contentId, UUID ownerId, PlatformType platform,
-            int windowHours, String windowLabel, PlatformMetrics metrics) {
-        AnalyticsSnapshot snapshot = new AnalyticsSnapshot();
-        snapshot.setContentId(contentId);
-        snapshot.setOwnerId(ownerId);
-        snapshot.setPlatform(platform);
-        snapshot.setWindowHours(windowHours);
-        snapshot.setWindowLabel(windowLabel);
-        snapshot.setViews(metrics.views());
-        snapshot.setLikes(metrics.likes());
-        snapshot.setComments(metrics.comments());
-        snapshot.setImpressions(metrics.impressions());
-        snapshot.setEngagementRate(metrics.engagementRate());
-        snapshot.setFetchedAt(Instant.now());
-        return snapshot;
     }
 
     private void publishAnalyticsUpdatedEvent(

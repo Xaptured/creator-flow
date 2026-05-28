@@ -34,9 +34,10 @@ public interface AnalyticsSnapshotRepository extends JpaRepository<AnalyticsSnap
             @Param("since") Instant since);
 
     /**
-     * Per-post: all snapshots for a content item, ordered by window_hours ASC.
+     * Per-post: all snapshots for a content item owned by ownerId, ordered by window_hours ASC.
+     * ownerId guard prevents one creator reading another creator's post analytics.
      */
-    List<AnalyticsSnapshot> findByContentIdOrderByWindowHoursAsc(UUID contentId);
+    List<AnalyticsSnapshot> findByContentIdAndOwnerIdOrderByWindowHoursAsc(UUID contentId, UUID ownerId);
 
     /**
      * Top posts: top 10 by engagement_rate DESC for owner.

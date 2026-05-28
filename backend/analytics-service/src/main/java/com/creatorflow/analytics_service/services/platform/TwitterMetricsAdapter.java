@@ -4,12 +4,12 @@ import com.creatorflow.analytics_service.configuration.TwitterProperties;
 import com.creatorflow.analytics_service.dto.PlatformMetrics;
 import com.creatorflow.analytics_service.model.PlatformType;
 import com.creatorflow.analytics_service.services.PlatformAdapter;
+import com.creatorflow.analytics_service.services.PlatformTokenReader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -23,8 +23,8 @@ import java.net.http.HttpResponse;
  * Fetches Twitter/X metrics via Twitter API v2 Tweet lookup endpoint.
  *
  * <p>Endpoint: {@code GET /2/tweets/{tweetId}?tweet.fields=public_metrics} with Bearer token
- * read from Redis ({@code oauth:{ownerId}:twitter:access_token}), written by
- * scheduler-service's TokenRefreshJob.</p>
+ * read from Redis via {@link PlatformTokenReader} (key: {@code platformTokens::<ownerId>::TWITTER}),
+ * written by media-service's {@code PlatformTokenCacheService}.</p>
  *
  * <p>Metrics fetched from {@code public_metrics}:
  * {@code impression_count, like_count, reply_count, retweet_count, quote_count}.</p>
@@ -48,23 +48,22 @@ public class TwitterMetricsAdapter implements PlatformAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(TwitterMetricsAdapter.class);
 
-    private static final String TOKEN_KEY_PATTERN = "oauth:%s:twitter:access_token";
     private static final String TWEETS_PATH = "/2/tweets/";
     private static final String TWEET_FIELDS_PARAM = "?tweet.fields=public_metrics";
 
     private static final PlatformMetrics ZERO_METRICS = PlatformMetrics.of(0L, 0L, 0L, 0L);
 
-    private final StringRedisTemplate redisTemplate;
+    private final PlatformTokenReader tokenReader;
     private final HttpClient httpClient;
     private final TwitterProperties twitterProperties;
     private final ObjectMapper objectMapper;
 
     public TwitterMetricsAdapter(
-            StringRedisTemplate redisTemplate,
+            PlatformTokenReader tokenReader,
             @Qualifier("twitterHttpClient") HttpClient httpClient,
             TwitterProperties twitterProperties,
             ObjectMapper objectMapper) {
-        this.redisTemplate = redisTemplate;
+        this.tokenReader = tokenReader;
         this.httpClient = httpClient;
         this.twitterProperties = twitterProperties;
         this.objectMapper = objectMapper;
@@ -81,8 +80,7 @@ public class TwitterMetricsAdapter implements PlatformAdapter {
      */
     @Override
     public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId, String platformPostId) {
-        String tokenKey = String.format(TOKEN_KEY_PATTERN, ownerId);
-        String accessToken = redisTemplate.opsForValue().get(tokenKey);
+        String accessToken = tokenReader.getAccessToken(ownerId, "TWITTER");
 
         if (accessToken == null || accessToken.isBlank()) {
             log.warn("Twitter OAuth token missing for owner {} — returning zero metrics", ownerId);

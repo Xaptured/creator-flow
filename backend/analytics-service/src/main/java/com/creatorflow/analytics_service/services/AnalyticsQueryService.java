@@ -44,12 +44,16 @@ public class AnalyticsQueryService {
     }
 
     /**
-     * All snapshots for a single content item, ordered by window_hours ASC.
-     * Window counts vary by platform (e.g. YouTube has 3 days / 7 days / 30 days).
+     * All snapshots for a single content item owned by the caller, ordered by window_hours ASC.
+     *
+     * ownerId is extracted from the JWT in the controller — not trusted from the client.
+     * Returns an empty list (not 404) when the content exists but belongs to another owner,
+     * to avoid leaking the existence of other creators' posts.
      */
     @Transactional(readOnly = true)
-    public List<ContentSnapshotResponse> getContentHistory(UUID contentId) {
-        List<AnalyticsSnapshot> snapshots = snapshotRepository.findByContentIdOrderByWindowHoursAsc(contentId);
+    public List<ContentSnapshotResponse> getContentHistory(UUID contentId, UUID ownerId) {
+        List<AnalyticsSnapshot> snapshots =
+                snapshotRepository.findByContentIdAndOwnerIdOrderByWindowHoursAsc(contentId, ownerId);
         return snapshots.stream()
                 .map(this::toContentSnapshotResponse)
                 .toList();

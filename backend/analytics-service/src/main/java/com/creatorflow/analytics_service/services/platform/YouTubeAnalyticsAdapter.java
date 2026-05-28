@@ -4,12 +4,12 @@ import com.creatorflow.analytics_service.configuration.YouTubeProperties;
 import com.creatorflow.analytics_service.dto.PlatformMetrics;
 import com.creatorflow.analytics_service.model.PlatformType;
 import com.creatorflow.analytics_service.services.PlatformAdapter;
+import com.creatorflow.analytics_service.services.PlatformTokenReader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -37,7 +37,6 @@ public class YouTubeAnalyticsAdapter implements PlatformAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(YouTubeAnalyticsAdapter.class);
 
-    private static final String TOKEN_KEY_PATTERN = "oauth:%s:youtube:access_token";
     private static final String REPORTS_PATH = "/v2/reports";
 
     // Column 0 is the video dimension (videoId string) — not read, metrics start at index 1
@@ -48,17 +47,17 @@ public class YouTubeAnalyticsAdapter implements PlatformAdapter {
 
     private static final PlatformMetrics ZERO_METRICS = PlatformMetrics.of(0L, 0L, 0L, null);
 
-    private final StringRedisTemplate redisTemplate;
+    private final PlatformTokenReader tokenReader;
     private final HttpClient httpClient;
     private final YouTubeProperties youTubeProperties;
     private final ObjectMapper objectMapper;
 
     public YouTubeAnalyticsAdapter(
-            StringRedisTemplate redisTemplate,
+            PlatformTokenReader tokenReader,
             @Qualifier("youtubeHttpClient") HttpClient httpClient,
             YouTubeProperties youTubeProperties,
             ObjectMapper objectMapper) {
-        this.redisTemplate = redisTemplate;
+        this.tokenReader = tokenReader;
         this.httpClient = httpClient;
         this.youTubeProperties = youTubeProperties;
         this.objectMapper = objectMapper;
@@ -75,8 +74,7 @@ public class YouTubeAnalyticsAdapter implements PlatformAdapter {
      */
     @Override
     public PlatformMetrics fetchMetrics(UUID contentId, UUID ownerId, String platformPostId) {
-        String tokenKey = String.format(TOKEN_KEY_PATTERN, ownerId);
-        String accessToken = redisTemplate.opsForValue().get(tokenKey);
+        String accessToken = tokenReader.getAccessToken(ownerId, "YOUTUBE");
 
         if (accessToken == null || accessToken.isBlank()) {
             log.warn("YouTube OAuth token missing for owner {} — returning zero metrics", ownerId);

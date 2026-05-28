@@ -104,9 +104,9 @@ public class InstagramOAuthService {
         PlatformAccount saved = platformAccountRepository.save(account);
 
         try {
-            platformTokenCacheService.evictPlatformToken(ownerId, "INSTAGRAM");
+            platformTokenCacheService.warmCache(ownerId, "INSTAGRAM");
         } catch (Exception e) {
-            log.warn("Failed to evict Instagram token cache after connect: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+            log.warn("Failed to warm Instagram token cache after connect: ownerId={} — cache will populate on next access", ownerId, e);
         }
 
         log.info("Instagram connected: ownerId={} instagramUserId={} username={}",

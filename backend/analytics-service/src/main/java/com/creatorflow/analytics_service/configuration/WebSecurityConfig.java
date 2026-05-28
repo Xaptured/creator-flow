@@ -1,5 +1,7 @@
 package com.creatorflow.analytics_service.configuration;
 
+import com.creatorflow.analytics_service.filter.OwnerIdValidationFilter;
+import com.creatorflow.analytics_service.filter.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -10,6 +12,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.List;
 import java.util.Map;
@@ -21,8 +25,8 @@ import java.util.stream.Collectors;
 public class WebSecurityConfig {
 
     private static final String AUTHORITIES_CLAIM_NAME = "realm_access";
-    private static final String AUTHORITY_KEY = "roles";
-    private static final String AUTHORITY_PREFIX = "ROLE_";
+    private static final String AUTHORITY_KEY          = "roles";
+    private static final String AUTHORITY_PREFIX       = "ROLE_";
 
     private static final String[] SWAGGER_UI_URLS = {
             "/swagger-ui.html",
@@ -31,17 +35,31 @@ public class WebSecurityConfig {
             "/v3/api-docs/**"
     };
 
+    private final CorsConfigurationSource corsConfigurationSource;
+    private final RateLimitFilter rateLimitFilter;
+    private final OwnerIdValidationFilter ownerIdValidationFilter;
+
+    public WebSecurityConfig(CorsConfigurationSource corsConfigurationSource,
+                             RateLimitFilter rateLimitFilter,
+                             OwnerIdValidationFilter ownerIdValidationFilter) {
+        this.corsConfigurationSource = corsConfigurationSource;
+        this.rateLimitFilter         = rateLimitFilter;
+        this.ownerIdValidationFilter = ownerIdValidationFilter;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource));
         http.csrf(AbstractHttpConfigurer::disable);
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers("/v1.0/api/analytics/health").permitAll()
                 .requestMatchers(SWAGGER_UI_URLS).permitAll()
                 .anyRequest().authenticated());
         http.oauth2ResourceServer(
                 oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+        http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(ownerIdValidationFilter, RateLimitFilter.class);
         return http.build();
     }
 
