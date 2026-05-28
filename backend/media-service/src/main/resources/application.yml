@@ -111,11 +111,13 @@ app:
       client-secret: ${INSTAGRAM_CLIENT_SECRET}
       redirect-uri: ${INSTAGRAM_REDIRECT_URI}
       sandbox: true
+      scopes: ${INSTAGRAM_SCOPES}
   twitter:
     oauth:
       client-id: ${TWITTER_CLIENT_ID}
       client-secret: ${TWITTER_CLIENT_SECRET}
       redirect-uri: ${TWITTER_REDIRECT_URI}
+      scopes: ${TWITTER_SCOPES}
   internal:
     secret: ${INTERNAL_SERVICE_SECRET}
   token-refresh:

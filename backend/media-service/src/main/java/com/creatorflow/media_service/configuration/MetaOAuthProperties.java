@@ -3,6 +3,8 @@ package com.creatorflow.media_service.configuration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * Binds app.meta.oauth.* from application.yml.
  *
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Component;
  *   INSTAGRAM_CLIENT_ID
  *   INSTAGRAM_CLIENT_SECRET
  *   INSTAGRAM_REDIRECT_URI
+ *   INSTAGRAM_SCOPES
  */
 @Component
 @ConfigurationProperties(prefix = "app.meta.oauth")
@@ -19,6 +22,7 @@ public class MetaOAuthProperties {
     private String clientSecret;
     private String redirectUri;
     private boolean sandbox;
+    private List<String> scopes;
 
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
@@ -31,4 +35,7 @@ public class MetaOAuthProperties {
 
     public boolean isSandbox() { return sandbox; }
     public void setSandbox(boolean sandbox) { this.sandbox = sandbox; }
+
+    public List<String> getScopes() { return scopes; }
+    public void setScopes(List<String> scopes) { this.scopes = scopes; }
 }

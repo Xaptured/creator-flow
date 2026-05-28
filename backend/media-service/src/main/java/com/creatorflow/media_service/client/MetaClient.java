@@ -70,11 +70,6 @@ public class MetaClient {
     private static final String GRANT_TYPE_AUTH_CODE    = "authorization_code";
     private static final String GRANT_TYPE_LONG_LIVED   = "ig_exchange_token";
     private static final String GRANT_TYPE_REFRESH      = "ig_refresh_token";
-    // Instagram Business Login scopes (used with www.instagram.com/oauth/authorize).
-    // The legacy instagram_basic / instagram_content_publish names belong to the Facebook
-    // Login flow and trigger "Invalid platform app" on the Instagram consent endpoint.
-    // See: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login
-    private static final String SCOPES                  = "instagram_business_basic,instagram_business_content_publish";
 
     // --- Long-lived token expiry (60 days in seconds, with 1 day buffer) ---
     static final long LONG_LIVED_TOKEN_EXPIRY_SECONDS = 60L * 24 * 60 * 60 - 86400L;
@@ -101,7 +96,7 @@ public class MetaClient {
                 .queryParam("client_id", metaOAuthProperties.getClientId())
                 .queryParam("redirect_uri", metaOAuthProperties.getRedirectUri())
                 .queryParam("response_type", RESPONSE_TYPE)
-                .queryParam("scope", SCOPES)
+                .queryParam("scope", String.join(",", metaOAuthProperties.getScopes()))
                 .queryParam("state", state)
                 .toUriString();
     }

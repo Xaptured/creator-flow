@@ -16,7 +16,7 @@ public class YouTubeProperties {
     private String clientSecret;
 
     /** Base URL for YouTube Analytics API. Overridable in tests. */
-    private String analyticsApiBaseUrl = "https://youtubeanalytics.googleapis.com";
+    private String analyticsApiBaseUrl;
 
     public String getClientId() {
         return clientId;
