@@ -13,5 +13,6 @@ public record IngestRequest(
         UUID ownerId,
         PlatformType platform,
         String platformPostId,
-        int windowHours
+        int windowHours,
+        String windowLabel
 ) {}

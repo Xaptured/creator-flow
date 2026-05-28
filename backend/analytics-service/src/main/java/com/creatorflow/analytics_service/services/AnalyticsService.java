@@ -50,11 +50,12 @@ public class AnalyticsService {
      * @param ownerId        UUID of the content owner
      * @param platform       target platform
      * @param platformPostId platform-native post ID (e.g. YouTube videoId, tweet ID, IG media ID); may be null
-     * @param windowHours    1, 24, or 168
+     * @param windowHours    hours after content live time at which this snapshot is taken
+     * @param windowLabel    human-readable label, e.g. "1 hour", "3 days", "30 days"
      */
     @Transactional
     public void fetchAndRecord(UUID contentId, UUID ownerId, PlatformType platform,
-                               String platformPostId, int windowHours) {
+                               String platformPostId, int windowHours, String windowLabel) {
         PlatformAdapter adapter = adapters.get(platform);
         if (adapter == null) {
             log.error("No adapter registered for platform: {}", platform);
@@ -63,20 +64,23 @@ public class AnalyticsService {
 
         PlatformMetrics metrics = adapter.fetchMetrics(contentId, ownerId, platformPostId);
 
-        AnalyticsSnapshot snapshot = buildSnapshot(contentId, ownerId, platform, windowHours, metrics);
+        AnalyticsSnapshot snapshot = buildSnapshot(contentId, ownerId, platform, windowHours, windowLabel, metrics);
         snapshotRepository.save(snapshot);
-        log.info("Analytics snapshot saved — contentId: {}, platform: {}, window: {}h", contentId, platform, windowHours);
+        log.info("Analytics snapshot saved — contentId: {}, platform: {}, window: {}h ({})",
+                contentId, platform, windowHours, windowLabel);
 
         publishAnalyticsUpdatedEvent(ownerId, contentId, platform, metrics, windowHours);
     }
 
     private AnalyticsSnapshot buildSnapshot(
-            UUID contentId, UUID ownerId, PlatformType platform, int windowHours, PlatformMetrics metrics) {
+            UUID contentId, UUID ownerId, PlatformType platform,
+            int windowHours, String windowLabel, PlatformMetrics metrics) {
         AnalyticsSnapshot snapshot = new AnalyticsSnapshot();
         snapshot.setContentId(contentId);
         snapshot.setOwnerId(ownerId);
         snapshot.setPlatform(platform);
         snapshot.setWindowHours(windowHours);
+        snapshot.setWindowLabel(windowLabel);
         snapshot.setViews(metrics.views());
         snapshot.setLikes(metrics.likes());
         snapshot.setComments(metrics.comments());

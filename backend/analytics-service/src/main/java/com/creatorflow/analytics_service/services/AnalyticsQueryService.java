@@ -44,7 +44,8 @@ public class AnalyticsQueryService {
     }
 
     /**
-     * All snapshots (window 1h, 24h, 168h) for a single content item.
+     * All snapshots for a single content item, ordered by window_hours ASC.
+     * Window counts vary by platform (e.g. YouTube has 3 days / 7 days / 30 days).
      */
     @Transactional(readOnly = true)
     public List<ContentSnapshotResponse> getContentHistory(UUID contentId) {
@@ -74,17 +75,24 @@ public class AnalyticsQueryService {
     /**
      * Idempotent HTTP ingest — delegates to AnalyticsService.fetchAndRecord.
      * scheduler-service calls this as a fallback when SQS is unavailable.
+     *
+     * <p>If {@code windowLabel} is absent in the request, a fallback label is
+     * derived from {@code windowHours} so existing callers are not broken.</p>
      */
     @Transactional
     public void ingest(IngestRequest request) {
+        String label = (request.windowLabel() != null && !request.windowLabel().isBlank())
+                ? request.windowLabel()
+                : deriveFallbackLabel(request.windowHours());
+
         analyticsService.fetchAndRecord(
                 request.contentId(),
                 request.ownerId(),
                 request.platform(),
                 request.platformPostId(),
-                request.windowHours());
+                request.windowHours(),
+                label);
     }
-
 
     private ContentSnapshotResponse toContentSnapshotResponse(AnalyticsSnapshot s) {
         return new ContentSnapshotResponse(
@@ -97,6 +105,14 @@ public class AnalyticsQueryService {
                 s.getImpressions(),
                 s.getEngagementRate(),
                 s.getWindowHours(),
+                s.getWindowLabel(),
                 s.getFetchedAt());
+    }
+
+    /** Derives a display label from raw hours for legacy ingest requests that omit windowLabel. */
+    private static String deriveFallbackLabel(int hours) {
+        if (hours < 24)  return hours + (hours == 1 ? " hour"  : " hours");
+        int days = hours / 24;
+        return days + (days == 1 ? " day" : " days");
     }
 }
