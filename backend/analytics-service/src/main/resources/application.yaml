@@ -106,3 +106,7 @@ app:
       analytics-events: ${AWS_SNS_TOPIC_ANALYTICS_EVENTS}
   sqs:
     poll-delay-ms: ${SQS_POLL_DELAY_MS}
+  youtube:
+    client-id: ${GOOGLE_YOUTUBE_CLIENT_ID}
+    client-secret: ${GOOGLE_YOUTUBE_CLIENT_SECRET}
+    analytics-api-base-url: ${GOOGLE_YOUTUBE_ANALYTICS_API_BASE_URL}

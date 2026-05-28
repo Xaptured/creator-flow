@@ -41,7 +41,7 @@ public class MetricsFetchJob implements Job {
         UUID contentId = UUID.fromString(data.getString(KEY_CONTENT_ID));
         UUID ownerId = UUID.fromString(data.getString(KEY_OWNER_ID));
         PlatformType platform = PlatformType.valueOf(data.getString(KEY_PLATFORM));
-        String platformPostId = data.getString(KEY_PLATFORM_POST_ID); // may be null
+        String platformPostId = data.getString(KEY_PLATFORM_POST_ID);
         int windowHours = data.getInt(KEY_WINDOW_HOURS);
 
         log.info("MetricsFetchJob executing — contentId: {}, platform: {}, platformPostId: {}, window: {}h",
