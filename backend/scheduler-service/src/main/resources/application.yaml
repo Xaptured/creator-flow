@@ -77,7 +77,6 @@ app:
     queues:
       content-scheduler: ${AWS_SQS_QUEUE_CONTENT_SCHEDULER}
       analytics:         ${AWS_SQS_QUEUE_ANALYTICS}
-      content-status:    ${AWS_SQS_QUEUE_CONTENT_STATUS}
     topics:
       creatorflow-events: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS}
   scheduler:
