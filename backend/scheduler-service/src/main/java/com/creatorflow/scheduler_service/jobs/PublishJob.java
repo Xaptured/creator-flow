@@ -29,9 +29,12 @@ import java.util.List;
  *   <li>Transitions each to PUBLISHING (prevents double-fire on overlapping polls)</li>
  *   <li>Publishes a {@code CONTENT_READY_TO_PUBLISH} event to the {@code creatorflow-events} SNS topic</li>
  * </ol>
- * The SNS fan-out delivers the event to {@code post-dispatcher-queue} (consumed by
- * media-service's PublishDispatcherListener) and {@code analytics-queue}.
- * </p>
+ * The SNS fan-out delivers the event to {@code post-dispatcher-queue}, consumed by
+ * media-service's PublishDispatcherListener. After publish, media-service writes
+ * {@code content.status} directly to DB and emits {@code CONTENT_PUBLISHED} to the
+ * {@code content-published} topic, which analytics-service consumes via
+ * {@code analytics-queue} to schedule metric fetch jobs (CF-103).
+ *</p>
  */
 @Component
 public class PublishJob implements Job {
