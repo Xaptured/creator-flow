@@ -9,15 +9,15 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 
 @Configuration
-@EnableConfigurationProperties(YouTubeProperties.class)
-public class YouTubeConfiguration {
+@EnableConfigurationProperties(InstagramProperties.class)
+public class InstagramConfiguration {
 
     /**
-     * Shared {@link HttpClient} for YouTube API calls.
+     * Shared {@link HttpClient} for Instagram Graph API calls.
      * Uses Java 21 built-in client — no extra dependency needed.
      */
-    @Bean("youtubeHttpClient")
-    public HttpClient youtubeHttpClient() {
+    @Bean("instagramHttpClient")
+    public HttpClient instagramHttpClient() {
         return HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();

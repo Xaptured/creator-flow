@@ -68,7 +68,6 @@ public class TwitterClient {
     private static final String CODE_CHALLENGE_METHOD = "S256";
     private static final String GRANT_TYPE_AUTH_CODE  = "authorization_code";
     private static final String GRANT_TYPE_REFRESH    = "refresh_token";
-    private static final String SCOPES              = "tweet.read tweet.write users.read offline.access";
 
     // --- PKCE ---
     private static final int CODE_VERIFIER_BYTE_LENGTH = 32;
@@ -116,7 +115,7 @@ public class TwitterClient {
                 .queryParam("response_type", RESPONSE_TYPE)
                 .queryParam("client_id", twitterOAuthProperties.getClientId())
                 .queryParam("redirect_uri", twitterOAuthProperties.getRedirectUri())
-                .queryParam("scope", SCOPES)
+                .queryParam("scope", String.join(" ", twitterOAuthProperties.getScopes()))
                 .queryParam("state", state)
                 .queryParam("code_challenge", codeChallenge)
                 .queryParam("code_challenge_method", CODE_CHALLENGE_METHOD)
