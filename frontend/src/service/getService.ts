@@ -1,4 +1,5 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
+import { InsightsResponse } from '@/lib/response/ai';
 import { MediaFile } from '@/lib/response/media';
 import { ContentStatusResponse, ScheduledContentDetail, ScheduledPost } from '@/lib/response/scheduler';
 import { DisconnectCheckResponse, PlatformStatusResponse } from '@/lib/response/platform';
@@ -61,5 +62,10 @@ export async function getNiches(): Promise<NichesResponse> {
 
 export async function getTimezones(): Promise<TimezonesResponse> {
   const { data } = await browserAxiosClient.get<TimezonesResponse>('/api/user/timezones');
+  return data;
+}
+
+export async function getAiInsights(): Promise<InsightsResponse> {
+  const { data } = await browserAxiosClient.get<InsightsResponse>('/api/ai/insights');
   return data;
 }
