@@ -6,11 +6,10 @@ export const GET_RECENT_SNAPSHOTS = `
     a.views,
     a.likes,
     a.comments,
-    a.snapshot_at
+    a.fetched_at AS snapshot_at
   FROM analytics_snapshots a
-  JOIN content c ON c.id = a.content_id
-  WHERE c.owner_id = $1
-  ORDER BY a.snapshot_at DESC
+  WHERE a.owner_id = $1
+  ORDER BY a.fetched_at DESC
   LIMIT 30
 `;
 
@@ -22,9 +21,8 @@ export const GET_TOP_POSTS = `
     a.views,
     a.likes,
     a.comments,
-    a.snapshot_at
+    a.fetched_at AS snapshot_at
   FROM analytics_snapshots a
-  JOIN content c ON c.id = a.content_id
-  WHERE c.owner_id = $1
-  ORDER BY a.content_id, a.snapshot_at DESC, (a.views + a.likes + a.comments) DESC
+  WHERE a.owner_id = $1
+  ORDER BY a.content_id, a.fetched_at DESC, (a.views + a.likes + a.comments) DESC
 `;
