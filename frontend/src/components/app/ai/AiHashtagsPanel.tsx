@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Button, Chip, CircularProgress, Typography } from '@mui/material'
+import { Box, Button, Chip, CircularProgress, Skeleton, Typography } from '@mui/material'
 import TagOutlinedIcon from '@mui/icons-material/TagOutlined'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import { generateHashtags } from '@/service/postService'
@@ -36,6 +36,7 @@ export default function AiHashtagsPanel({ description, platform }: Props) {
   async function handleGenerate() {
     setLoading(true)
     setError(null)
+    setHashtags([])
     try {
       const res = await generateHashtags({ description, platform })
       setHashtags(res.hashtags)
@@ -111,6 +112,24 @@ export default function AiHashtagsPanel({ description, platform }: Props) {
           </Button>
         </Box>
       </Box>
+
+      <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mb: 2, mt: -1, lineHeight: 1.5 }}>
+        15 tags ranked by reach (high / mid / niche) — tap any tag to copy it.
+      </Typography>
+
+      {loading && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {Array.from({ length: 15 }).map((_, i) => (
+            <Skeleton
+              key={i}
+              variant="rounded"
+              width={70 + (i % 4) * 18}
+              height={28}
+              sx={{ bgcolor: 'var(--th-border)', borderRadius: '6px' }}
+            />
+          ))}
+        </Box>
+      )}
 
       {error && (
         <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: '#ff4040', mb: 1.5 }}>

@@ -26,6 +26,10 @@ export interface ScheduleContentResponse {
   error?: string
 }
 
+export interface ContentCountResponse {
+  count: number
+}
+
 /** From GET /content/{id}/status */
 export interface ContentStatusResponse {
   contentId: string

@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record TopPostResponse(
         UUID contentId,
+        String title,
         PlatformType platform,
         Long views,
         Long likes,

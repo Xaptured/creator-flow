@@ -88,6 +88,11 @@ public class SchedulerService {
     }
 
     @Transactional(readOnly = true)
+    public long countByStatus(UUID ownerId, ContentStatus status) {
+        return contentRepository.countByOwnerIdAndStatus(ownerId, status);
+    }
+
+    @Transactional(readOnly = true)
     public ScheduledContentDetail getContent(UUID contentId, UUID ownerId) {
         Content content = contentRepository.findByIdAndOwnerId(contentId, ownerId)
                 .orElseThrow(() -> new ContentNotFoundException("Content not found: " + contentId));

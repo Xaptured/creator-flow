@@ -17,6 +17,8 @@ public interface ContentRepository extends JpaRepository<Content, UUID> {
 
     List<Content> findAllByOwnerIdOrderByScheduledAtAsc(UUID ownerId);
 
+    long countByOwnerIdAndStatus(UUID ownerId, ContentStatus status);
+
     @Query("SELECT c FROM Content c WHERE c.status = :status AND c.scheduledAt <= :now")
     List<Content> findDueContent(
             @Param("status") ContentStatus status,

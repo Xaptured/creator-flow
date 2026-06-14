@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Box, Typography, Grid, Alert, AlertTitle, IconButton, Link } from '@mui/material'
+import { Box, Typography, Grid, Alert, AlertTitle, IconButton, Link, Skeleton } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import useSWR from 'swr'
-import { getPlatformStatus, getUserPreferences } from '@/service/getService'
+import { getAnalyticsSummary, getPlatformStatus, getScheduledCount, getUserPreferences } from '@/service/getService'
 import { PlatformStatusResponse } from '@/lib/response/platform'
+import { PlatformSummary } from '@/lib/response/analytics'
+import { ContentCountResponse } from '@/lib/response/scheduler'
 import { UserPreferencesResponse } from '@/lib/response/user'
 import AiInsightsCard from '@/components/app/ai/AiInsightsCard'
 
@@ -20,12 +22,11 @@ const cardSx = {
   boxShadow: 'var(--cf-card-shadow)',
 }
 
-const statCards = [
-  { label: 'Total Views', value: '—', delta: '+0%', platform: 'All Platforms' },
-  { label: 'Likes', value: '—', delta: '+0%', platform: 'All Platforms' },
-  { label: 'Comments', value: '—', delta: '+0%', platform: 'All Platforms' },
-  { label: 'Scheduled Posts', value: '—', delta: 'This week', platform: 'Upcoming' },
-]
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
 
 const contentGaps = [
   "You haven't posted in 30+ days — connect a platform to track gaps.",
@@ -79,6 +80,37 @@ export default function DashboardHome() {
     getUserPreferences,
     { revalidateOnFocus: false }
   )
+
+  const { data: summary } = useSWR<PlatformSummary[]>(
+    '/api/analytics/summary',
+    () => getAnalyticsSummary(),
+    { revalidateOnFocus: false }
+  )
+
+  const { data: scheduled } = useSWR<ContentCountResponse>(
+    '/api/scheduler/content/count',
+    () => getScheduledCount('SCHEDULED'),
+    { revalidateOnFocus: false }
+  )
+
+  const totals = (summary ?? []).reduce(
+    (acc, r) => ({
+      views: acc.views + (r.views ?? 0),
+      likes: acc.likes + (r.likes ?? 0),
+      comments: acc.comments + (r.comments ?? 0),
+    }),
+    { views: 0, likes: 0, comments: 0 }
+  )
+
+  const summaryLoading = summary === undefined
+  const scheduledLoading = scheduled === undefined
+
+  const statCards = [
+    { label: 'Total Views', value: formatCount(totals.views), loading: summaryLoading, delta: 'Last 30 days', platform: 'All Platforms' },
+    { label: 'Likes', value: formatCount(totals.likes), loading: summaryLoading, delta: 'Last 30 days', platform: 'All Platforms' },
+    { label: 'Comments', value: formatCount(totals.comments), loading: summaryLoading, delta: 'Last 30 days', platform: 'All Platforms' },
+    { label: 'Scheduled Posts', value: scheduled ? String(scheduled.count) : '0', loading: scheduledLoading, delta: 'Upcoming', platform: 'Scheduler' },
+  ]
 
   // Re-show the timezone alert if the saved timezone changes
   useEffect(() => {
@@ -209,19 +241,23 @@ export default function DashboardHome() {
               >
                 {stat.label}
               </Typography>
-              <Typography
-                sx={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: 32,
-                  fontWeight: 600,
-                  color: 'var(--th-text-primary)',
-                  letterSpacing: '-0.28px',
-                  lineHeight: 1.1,
-                  mb: 1,
-                }}
-              >
-                {stat.value}
-              </Typography>
+              {stat.loading ? (
+                <Skeleton variant="text" width={80} height={42} sx={{ bgcolor: 'var(--th-border)', mb: 1 }} />
+              ) : (
+                <Typography
+                  sx={{
+                    fontFamily: 'var(--cf-font-display)',
+                    fontSize: 32,
+                    fontWeight: 600,
+                    color: 'var(--th-text-primary)',
+                    letterSpacing: '-0.28px',
+                    lineHeight: 1.1,
+                    mb: 1,
+                  }}
+                >
+                  {stat.value}
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TrendingUpOutlinedIcon sx={{ fontSize: 14, color: 'var(--th-text-tertiary)' }} />
                 <Typography

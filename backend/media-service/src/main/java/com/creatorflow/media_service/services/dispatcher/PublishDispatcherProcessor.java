@@ -132,7 +132,7 @@ public class PublishDispatcherProcessor {
         if (targets.isEmpty()) {
             log.error("publish-dispatcher: empty platformTargets for contentId: {} — treating as failure", contentId);
             updateContentStatus(content, ContentStatus.FAILED, null);
-            emitStatusEvent(EVENT_FAILED, contentId, ownerId, null, null);
+            emitStatusEvent(EVENT_FAILED, contentId, ownerId, null, null, content.getTitle());
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
             return;
         }
@@ -156,7 +156,7 @@ public class PublishDispatcherProcessor {
             // SNS event is still emitted for analytics-service fan-out only.
             updateContentStatus(content, ContentStatus.PUBLISHED, platformPostId);
             log.info("publish-dispatcher: published to {} — contentId: {}", platform, contentId);
-            emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId, platform, platformPostId);
+            emitStatusEvent(EVENT_PUBLISHED, contentId, ownerId, platform, platformPostId, content.getTitle());
             deleteMessage(queueUrl, sqsMessage.receiptHandle());
         } catch (OAuthTokenExchangeException e) {
             if (e.isInvalidGrant()) {
@@ -165,7 +165,7 @@ public class PublishDispatcherProcessor {
                         "publish-dispatcher: OAuth token revoked (invalid_grant) — platform: {}, contentId: {}, ownerId: {} — marking FAILED, deleting message",
                         platform, contentId, ownerId, e);
                 updateContentStatus(content, ContentStatus.FAILED, null);
-                emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null);
+                emitStatusEvent(EVENT_FAILED, contentId, ownerId, platform, null, content.getTitle());
                 deleteMessage(queueUrl, sqsMessage.receiptHandle());
             } else {
                 // Transient OAuth error — do not write DB, do not emit SNS, do not delete.
@@ -191,14 +191,15 @@ public class PublishDispatcherProcessor {
     }
 
     private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId,
-                                  PlatformType platform, String platformPostId) {
+                                  PlatformType platform, String platformPostId, String title) {
         try {
             ContentPublishedPayload statusPayload = new ContentPublishedPayload(
                     contentId,
                     ownerId,
                     platform != null ? platform.name() : null,
                     platformPostId,
-                    eventType.equals(EVENT_PUBLISHED) ? "PUBLISHED" : "FAILED");
+                    eventType.equals(EVENT_PUBLISHED) ? "PUBLISHED" : "FAILED",
+                    title);
             String payloadJson = objectMapper.writeValueAsString(statusPayload);
             CreatorflowEventMessage event = CreatorflowEventMessage.of(eventType, payloadJson);
             snsPublisher.publishToTopic("content-published", event);

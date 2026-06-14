@@ -31,6 +31,7 @@ public class MetricsFetchJob implements Job {
     public static final String KEY_PLATFORM_POST_ID = "platformPostId";
     public static final String KEY_WINDOW_HOURS     = "windowHours";
     public static final String KEY_WINDOW_LABEL     = "windowLabel";
+    public static final String KEY_TITLE            = "title";
 
     @Autowired
     private AnalyticsService analyticsService;
@@ -45,12 +46,13 @@ public class MetricsFetchJob implements Job {
         String platformPostId = data.getString(KEY_PLATFORM_POST_ID);
         int windowHours       = data.getInt(KEY_WINDOW_HOURS);
         String windowLabel    = data.getString(KEY_WINDOW_LABEL);
+        String title          = data.getString(KEY_TITLE);
 
         log.info("MetricsFetchJob executing — contentId: {}, platform: {}, platformPostId: {}, window: {}h ({})",
                 contentId, platform, platformPostId, windowHours, windowLabel);
 
         try {
-            analyticsService.fetchAndRecord(contentId, ownerId, platform, platformPostId, windowHours, windowLabel);
+            analyticsService.fetchAndRecord(contentId, ownerId, platform, platformPostId, windowHours, windowLabel, title);
         } catch (Exception e) {
             log.error("MetricsFetchJob failed — contentId: {}, platform: {}, window: {}h",
                     contentId, platform, windowHours, e);

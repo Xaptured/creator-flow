@@ -1,24 +1,32 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Typography, Tab, Tabs, Grid } from '@mui/material'
+import { Box, Typography, Tab, Tabs, Grid, Skeleton } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
+import useSWR from 'swr'
 import PostAnalyticsDetail from './PostAnalyticsDetail'
+import { getAnalyticsSummary, getTopPosts } from '@/service/getService'
+import { PlatformSummary, TopPost } from '@/lib/response/analytics'
+import { PlatformType } from '@/lib/response/scheduler'
 
-const PLATFORMS = ['All', 'YouTube', 'Instagram', 'Twitter/X']
-
-const statCards = [
-  { label: 'Total Views', value: '—' },
-  { label: 'Likes', value: '—' },
-  { label: 'Comments', value: '—' },
-  { label: 'Engagement Rate', value: '—' },
+const PLATFORM_TABS: { label: string; type: PlatformType | null }[] = [
+  { label: 'All', type: null },
+  { label: 'YouTube', type: PlatformType.YOUTUBE },
+  { label: 'Instagram', type: PlatformType.INSTAGRAM },
+  { label: 'Twitter/X', type: PlatformType.TWITTER },
 ]
 
-const topPosts = [
-  { id: 'post-1', title: 'My first video post', platform: 'YouTube', views: '—', likes: '—', engagement: '—' },
-  { id: 'post-2', title: 'Behind the scenes reel', platform: 'Instagram', views: '—', likes: '—', engagement: '—' },
-  { id: 'post-3', title: 'Weekly thread recap', platform: 'Twitter/X', views: '—', likes: '—', engagement: '—' },
-]
+const PLATFORM_LABELS: Record<string, string> = {
+  [PlatformType.YOUTUBE]: 'YouTube',
+  [PlatformType.INSTAGRAM]: 'Instagram',
+  [PlatformType.TWITTER]: 'Twitter/X',
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
 
 const cardSx = {
   backgroundColor: 'var(--th-bg-card)',
@@ -30,6 +38,55 @@ const cardSx = {
 export default function AnalyticsOverview() {
   const [platform, setPlatform] = useState(0)
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null)
+
+  const platformType = PLATFORM_TABS[platform]?.type ?? null
+
+  const { data: summary } = useSWR<PlatformSummary[]>(
+    ['/api/analytics/summary', platformType],
+    () => getAnalyticsSummary(platformType ?? undefined),
+    { revalidateOnFocus: false }
+  )
+
+  const { data: topPosts } = useSWR<TopPost[]>(
+    ['/api/analytics/top-posts', platformType],
+    () => getTopPosts(platformType ?? undefined),
+    { revalidateOnFocus: false }
+  )
+
+  const totals = (summary ?? []).reduce(
+    (acc, r) => ({
+      views: acc.views + (r.views ?? 0),
+      likes: acc.likes + (r.likes ?? 0),
+      comments: acc.comments + (r.comments ?? 0),
+      impressions: acc.impressions + (r.impressions ?? 0),
+    }),
+    { views: 0, likes: 0, comments: 0, impressions: 0 }
+  )
+
+  const summaryLoading = summary === undefined
+
+  const engagementRate =
+    totals.impressions > 0
+      ? `${(((totals.likes + totals.comments) / totals.impressions) * 100).toFixed(1)}%`
+      : '—'
+
+  const statCards = [
+    { label: 'Total Views', value: formatCount(totals.views), loading: summaryLoading },
+    { label: 'Likes', value: formatCount(totals.likes), loading: summaryLoading },
+    { label: 'Comments', value: formatCount(totals.comments), loading: summaryLoading },
+    ...(platformType !== null
+      ? [{ label: 'Engagement Rate', value: engagementRate, loading: summaryLoading }]
+      : []),
+  ]
+
+  const topPostRows = (topPosts ?? []).map((p) => ({
+    id: p.contentId,
+    title: p.title && p.title.trim().length > 0 ? p.title : `Post ${p.contentId.slice(0, 8)}`,
+    platform: PLATFORM_LABELS[p.platform] ?? p.platform,
+    views: formatCount(p.views ?? 0),
+    likes: formatCount(p.likes ?? 0),
+    engagement: p.engagementRate != null ? `${(p.engagementRate * 100).toFixed(1)}%` : '—',
+  }))
 
   return (
     <Box>
@@ -55,7 +112,9 @@ export default function AnalyticsOverview() {
             mt: 0.5,
           }}
         >
-          Last 30 days across all connected platforms.
+          {platformType
+            ? `Last 30 days — ${PLATFORM_LABELS[platformType]}.`
+            : 'Last 30 days across all connected platforms.'}
         </Typography>
       </Box>
 
@@ -78,12 +137,12 @@ export default function AnalyticsOverview() {
           '& .MuiTabs-indicator': { backgroundColor: 'var(--cf-blue)' },
         }}
       >
-        {PLATFORMS.map(p => <Tab key={p} label={p} />)}
+        {PLATFORM_TABS.map(p => <Tab key={p.label} label={p.label} />)}
       </Tabs>
 
       <Grid container spacing={2} sx={{ mb: 4 }}>
         {statCards.map(stat => (
-          <Grid item xs={6} xl={3} key={stat.label}>
+          <Grid item xs={6} xl={12 / statCards.length} key={stat.label}>
             <Box sx={cardSx}>
               <Typography
                 sx={{
@@ -98,6 +157,9 @@ export default function AnalyticsOverview() {
               >
                 {stat.label}
               </Typography>
+              {stat.loading ? (
+                <Skeleton variant="text" width={70} height={38} sx={{ bgcolor: 'var(--th-border)' }} />
+              ) : (
               <Typography
                 sx={{
                   fontFamily: 'var(--cf-font-display)',
@@ -110,6 +172,7 @@ export default function AnalyticsOverview() {
               >
                 {stat.value}
               </Typography>
+              )}
             </Box>
           </Grid>
         ))}
@@ -203,7 +266,12 @@ export default function AnalyticsOverview() {
           Top Performing Posts
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {topPosts.map((post, i) => (
+          {topPostRows.length === 0 && (
+            <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px' }}>
+              No post analytics yet. Once your posts collect metrics, your top performers appear here.
+            </Typography>
+          )}
+          {topPostRows.map((post, i) => (
             <Box
               key={post.id}
               onClick={() => setSelectedPostId(post.id)}

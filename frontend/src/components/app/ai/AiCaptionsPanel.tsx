@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Button, Chip, CircularProgress, Typography } from '@mui/material'
+import { Box, Button, Chip, CircularProgress, Skeleton, Typography } from '@mui/material'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import { generateCaptions } from '@/service/postService'
@@ -40,6 +40,7 @@ export default function AiCaptionsPanel({ title, platform, niche, onSelect }: Pr
   async function handleGenerate() {
     setLoading(true)
     setError(null)
+    setCaptions([]) 
     try {
       const res = await generateCaptions({ title, platform, niche: niche || 'general' })
       setCaptions(res.captions)
@@ -94,6 +95,22 @@ export default function AiCaptionsPanel({ title, platform, niche, onSelect }: Pr
           {loading ? 'Generating...' : captions.length > 0 ? 'Regenerate' : 'Generate'}
         </Button>
       </Box>
+
+      <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mb: 2, mt: -1, lineHeight: 1.5 }}>
+        Four tone variants written from your title — tap one to use it as your description.
+      </Typography>
+
+      {loading && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <Box key={i} sx={{ border: '1px solid var(--th-border)', borderRadius: '8px', p: 2 }}>
+              <Skeleton variant="rounded" width={90} height={20} sx={{ bgcolor: 'var(--th-border)', mb: 1 }} />
+              <Skeleton variant="text" width="100%" sx={{ bgcolor: 'var(--th-border)' }} />
+              <Skeleton variant="text" width="80%" sx={{ bgcolor: 'var(--th-border)' }} />
+            </Box>
+          ))}
+        </Box>
+      )}
 
       {error && (
         <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: '#ff4040', mb: 1.5 }}>

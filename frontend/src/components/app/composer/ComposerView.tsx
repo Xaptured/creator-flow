@@ -164,6 +164,9 @@ export default function ComposerView() {
 
   function selectPlatform(p: PlatformType) {
     setSelectedPlatform(p)
+    if (p === PlatformType.TWITTER) {
+      setDescription('')
+    }
   }
 
   function handleMediaSelect(file: MediaFile) {
@@ -237,6 +240,7 @@ export default function ComposerView() {
   const isPublished = isEditMode && (postStatus === ContentStatus.PUBLISHED || postStatus === ContentStatus.PUBLISHING)
   const isFailed = isEditMode && postStatus === ContentStatus.FAILED
   const isYouTubeSelected = selectedPlatform === PlatformType.YOUTUBE
+  const isTwitterSelected = selectedPlatform === PlatformType.TWITTER
 
   // PUBLISHED/PUBLISHING: read-only, no save. FAILED/SCHEDULED/DRAFT: editable.
   const baseCanSubmit = title.trim().length > 0 && selectedPlatform !== null && !submitting && preferencesLoaded && editReady && !isPublished
@@ -306,7 +310,13 @@ export default function ComposerView() {
             <Typography sx={sectionLabelSx}>Content</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField fullWidth label="Title" variant="outlined" value={title} onChange={(e) => setTitle(e.target.value)} sx={inputSx} />
-              <TextField fullWidth label="Description" variant="outlined" multiline rows={5} value={description} onChange={(e) => setDescription(e.target.value)} sx={inputSx} />
+              {isTwitterSelected ? (
+                <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', lineHeight: 1.5 }}>
+                  X posts use the Title as the tweet text (max 280 characters). There is no separate description on X.
+                </Typography>
+              ) : (
+                <TextField fullWidth label="Description" variant="outlined" multiline rows={5} value={description} onChange={(e) => setDescription(e.target.value)} sx={inputSx} />
+              )}
             </Box>
           </Box>
 
@@ -339,14 +349,16 @@ export default function ComposerView() {
             <VaultPickerDialog open={vaultOpen} onClose={() => setVaultOpen(false)} onSelect={handleMediaSelect} />
           </Box>
 
-          <Box sx={cardSx}>
-            <AiCaptionsPanel
-              title={title}
-              platform={selectedPlatform ?? ''}
-              niche={''}
-              onSelect={(caption) => setDescription(caption)}
-            />
-          </Box>
+          {!isTwitterSelected && (
+            <Box sx={cardSx}>
+              <AiCaptionsPanel
+                title={title}
+                platform={selectedPlatform ?? ''}
+                niche={''}
+                onSelect={(caption) => setDescription(caption)}
+              />
+            </Box>
+          )}
 
           <Box sx={cardSx}>
             <AiHashtagsPanel
@@ -359,6 +371,9 @@ export default function ComposerView() {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Box sx={cardSx}>
             <Typography sx={sectionLabelSx}>Platforms</Typography>
+            <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mt: -1, mb: 2 }}>
+              Only connected platforms are shown.
+            </Typography>
             {connectedPlatforms.length === 0 ? (
               <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: 'var(--th-text-tertiary)' }}>
                 No connected platforms. Visit{' '}
@@ -410,12 +425,9 @@ export default function ComposerView() {
                   '& .MuiAlert-message': { lineHeight: 1.55 },
                 }}
               >
-                <strong>YouTube works differently.</strong> We don&apos;t publish directly to YouTube — you upload and go live in YouTube Studio yourself. Use the &quot;YouTube Video Live Time&quot; field below to tell us when your video went live (or will go live). We&apos;ll start pulling your analytics 72 hours after that time, when YouTube&apos;s data becomes accurate. <strong>Schedule Post is not available for YouTube</strong> — click <strong>Confirm Live Time</strong> once you&apos;ve set the date.
+                <strong>For YouTube, set the date &amp; time you want the video to go public.</strong> The video uploads as a <strong>draft</strong> — set this same public time in YouTube Studio. Other platforms go live directly at the time you set.
               </Alert>
             )}
-            <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mt: 1.5 }}>
-              Only connected platforms are shown.
-            </Typography>
           </Box>
 
           <Box sx={cardSx}>

@@ -5,6 +5,7 @@ import com.creatorflow.analytics_service.dto.response.ContentSnapshotResponse;
 import com.creatorflow.analytics_service.dto.response.ErrorResponse;
 import com.creatorflow.analytics_service.dto.response.PlatformSummaryResponse;
 import com.creatorflow.analytics_service.dto.response.TopPostResponse;
+import com.creatorflow.analytics_service.model.PlatformType;
 import com.creatorflow.analytics_service.services.AnalyticsQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,7 +35,9 @@ public class AnalyticsController {
 
     @Operation(
             summary = "Get platform summary",
-            description = "Returns 30-day aggregated metrics (views, likes, comments) grouped by platform for the given creator."
+            description = "Returns 30-day aggregated metrics (views, likes, comments) for the given creator. " +
+                    "Without the optional 'platform' query param, returns one row per platform. " +
+                    "With 'platform', returns only that platform's row (empty list if no data)."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Summary returned",
@@ -48,8 +51,10 @@ public class AnalyticsController {
     @PreAuthorize("hasRole('CREATOR')")
     public ResponseEntity<List<PlatformSummaryResponse>> getSummary(
             @Parameter(description = "UUID of the content owner", required = true)
-            @PathVariable UUID ownerId) {
-        return ResponseEntity.ok(queryService.getSummary(ownerId));
+            @PathVariable UUID ownerId,
+            @Parameter(description = "Optional platform filter (e.g. YOUTUBE, INSTAGRAM, TWITTER). Omit for all platforms.")
+            @RequestParam(required = false) PlatformType platform) {
+        return ResponseEntity.ok(queryService.getSummary(ownerId, platform));
     }
 
     @Operation(
@@ -78,7 +83,9 @@ public class AnalyticsController {
 
     @Operation(
             summary = "Get top posts",
-            description = "Returns the top 10 posts for the creator ranked by engagement rate (descending) across all platforms."
+            description = "Returns the top 10 posts for the creator ranked by engagement rate (descending). " +
+                    "Without the optional 'platform' query param, ranks across all platforms; " +
+                    "with 'platform', ranks only that platform's posts."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Top posts returned",
@@ -92,8 +99,10 @@ public class AnalyticsController {
     @PreAuthorize("hasRole('CREATOR')")
     public ResponseEntity<List<TopPostResponse>> getTopPosts(
             @Parameter(description = "UUID of the content owner", required = true)
-            @PathVariable UUID ownerId) {
-        return ResponseEntity.ok(queryService.getTopPosts(ownerId));
+            @PathVariable UUID ownerId,
+            @Parameter(description = "Optional platform filter (e.g. YOUTUBE, INSTAGRAM, TWITTER). Omit for all platforms.")
+            @RequestParam(required = false) PlatformType platform) {
+        return ResponseEntity.ok(queryService.getTopPosts(ownerId, platform));
     }
 
     @Operation(

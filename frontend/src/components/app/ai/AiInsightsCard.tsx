@@ -1,7 +1,8 @@
 'use client'
 
-import { Box, Chip, CircularProgress, Skeleton, Typography } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, CircularProgress, Skeleton, Typography } from '@mui/material'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
+import ExpandMoreOutlinedIcon from '@mui/icons-material/ExpandMoreOutlined'
 import useSWR from 'swr'
 import { getAiInsights } from '@/service/getService'
 import { InsightsResponse } from '@/lib/response/ai'
@@ -84,59 +85,78 @@ export default function AiInsightsCard() {
         </Typography>
       )}
 
-      {data && !isLoading && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {data && !isLoading && data.insights.length === 0 && (
+        <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px' }}>
+          No insights yet. Connect a platform and post content to get AI recommendations.
+        </Typography>
+      )}
+
+      {data && !isLoading && data.insights.length > 0 && (
+        <Box>
           {data.insights.map((insight, i) => (
-            <Box key={i} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-              <Box
-                sx={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--cf-blue)',
-                  mt: '7px',
-                  flexShrink: 0,
-                }}
-              />
-              <Box>
-                <Typography
-                  sx={{
-                    fontFamily: 'var(--cf-font-text)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: 'var(--th-text-primary)',
-                    letterSpacing: '-0.224px',
-                    lineHeight: 1.47,
-                    mb: 0.25,
-                  }}
-                >
-                  {insight.title}
-                </Typography>
+            <Accordion
+              key={i}
+              defaultExpanded={i === 0}
+              disableGutters
+              elevation={0}
+              square
+              sx={{
+                backgroundColor: 'transparent',
+                borderTop: i === 0 ? 'none' : '1px solid var(--th-border)',
+                '&:before': { display: 'none' },
+                '& .MuiAccordionSummary-root': { px: 0, minHeight: 0, py: 1.25 },
+                '& .MuiAccordionSummary-content': { my: 0 },
+                '& .MuiAccordionDetails-root': { px: 0, pt: 0, pb: 1.5 },
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreOutlinedIcon sx={{ fontSize: 18, color: 'var(--th-text-tertiary)' }} />}
+              >
+                <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', pr: 1 }}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--cf-blue)', mt: '8px', flexShrink: 0 }} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      sx={{
+                        fontFamily: 'var(--cf-font-text)',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: 'var(--th-text-primary)',
+                        letterSpacing: '-0.224px',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {insight.title}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontFamily: 'var(--cf-font-text)',
+                        fontSize: 12,
+                        color: 'var(--cf-blue)',
+                        letterSpacing: '-0.12px',
+                        lineHeight: 1.4,
+                        mt: 0.25,
+                      }}
+                    >
+                      → {insight.actionableStep}
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
                 <Typography
                   sx={{
                     fontFamily: 'var(--cf-font-text)',
                     fontSize: 13,
                     color: 'var(--th-text-secondary)',
                     letterSpacing: '-0.12px',
-                    lineHeight: 1.47,
-                    mb: 0.5,
+                    lineHeight: 1.5,
+                    pl: 2.25,
                   }}
                 >
                   {insight.description}
                 </Typography>
-                <Typography
-                  sx={{
-                    fontFamily: 'var(--cf-font-text)',
-                    fontSize: 12,
-                    color: 'var(--cf-blue)',
-                    letterSpacing: '-0.12px',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  → {insight.actionableStep}
-                </Typography>
-              </Box>
-            </Box>
+              </AccordionDetails>
+            </Accordion>
           ))}
         </Box>
       )}
