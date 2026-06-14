@@ -10,7 +10,6 @@ import {
   Button,
   Radio,
   FormControlLabel,
-  Chip,
   CircularProgress,
   Alert,
   Dialog,
@@ -19,11 +18,9 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material'
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import PermMediaOutlinedIcon from '@mui/icons-material/PermMediaOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
-import TagOutlinedIcon from '@mui/icons-material/TagOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import { ContentStatus, PlatformType, ScheduleContentResponse } from '@/lib/response/scheduler'
@@ -35,6 +32,8 @@ import { deleteScheduledContent } from '@/service/deleteService'
 import { toApiError } from '@/service/errorService'
 import { toLocalDatetimeLocal, toUtcIso } from '@/lib/timezone/timezoneUtils'
 import VaultPickerDialog from './VaultPickerDialog'
+import AiCaptionsPanel from '@/components/app/ai/AiCaptionsPanel'
+import AiHashtagsPanel from '@/components/app/ai/AiHashtagsPanel'
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
@@ -77,11 +76,6 @@ const PLATFORM_LABELS: Record<PlatformType, string> = {
   [PlatformType.TWITTER]: 'Twitter/X',
 }
 
-const toneVariants = [
-  { label: 'Professional', caption: 'Clear and authoritative' },
-  { label: 'Casual', caption: 'Friendly and approachable' },
-  { label: 'Witty', caption: 'Clever and engaging' },
-]
 
 export default function ComposerView() {
   const router = useRouter()
@@ -170,6 +164,9 @@ export default function ComposerView() {
 
   function selectPlatform(p: PlatformType) {
     setSelectedPlatform(p)
+    if (p === PlatformType.TWITTER) {
+      setDescription('')
+    }
   }
 
   function handleMediaSelect(file: MediaFile) {
@@ -243,6 +240,7 @@ export default function ComposerView() {
   const isPublished = isEditMode && (postStatus === ContentStatus.PUBLISHED || postStatus === ContentStatus.PUBLISHING)
   const isFailed = isEditMode && postStatus === ContentStatus.FAILED
   const isYouTubeSelected = selectedPlatform === PlatformType.YOUTUBE
+  const isTwitterSelected = selectedPlatform === PlatformType.TWITTER
 
   // PUBLISHED/PUBLISHING: read-only, no save. FAILED/SCHEDULED/DRAFT: editable.
   const baseCanSubmit = title.trim().length > 0 && selectedPlatform !== null && !submitting && preferencesLoaded && editReady && !isPublished
@@ -312,7 +310,13 @@ export default function ComposerView() {
             <Typography sx={sectionLabelSx}>Content</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField fullWidth label="Title" variant="outlined" value={title} onChange={(e) => setTitle(e.target.value)} sx={inputSx} />
-              <TextField fullWidth label="Description" variant="outlined" multiline rows={5} value={description} onChange={(e) => setDescription(e.target.value)} sx={inputSx} />
+              {isTwitterSelected ? (
+                <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', lineHeight: 1.5 }}>
+                  X posts use the Title as the tweet text (max 280 characters). There is no separate description on X.
+                </Typography>
+              ) : (
+                <TextField fullWidth label="Description" variant="outlined" multiline rows={5} value={description} onChange={(e) => setDescription(e.target.value)} sx={inputSx} />
+              )}
             </Box>
           </Box>
 
@@ -345,45 +349,31 @@ export default function ComposerView() {
             <VaultPickerDialog open={vaultOpen} onClose={() => setVaultOpen(false)} onSelect={handleMediaSelect} />
           </Box>
 
-          <Box sx={cardSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <AutoAwesomeOutlinedIcon sx={{ fontSize: 18, color: 'var(--cf-blue)' }} />
-              <Typography sx={sectionLabelSx}>AI Suggested Captions</Typography>
+          {!isTwitterSelected && (
+            <Box sx={cardSx}>
+              <AiCaptionsPanel
+                title={title}
+                platform={selectedPlatform ?? ''}
+                niche={''}
+                onSelect={(caption) => setDescription(caption)}
+              />
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {toneVariants.map((v) => (
-                <Box key={v.label} sx={{ border: '1px solid var(--th-border)', borderRadius: '8px', p: 2, cursor: 'pointer', '&:hover': { borderColor: 'var(--cf-blue)', backgroundColor: 'rgba(0,113,227,0.04)' }, transition: 'border-color 0.15s, background-color 0.15s' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <Chip label={v.label} size="small" sx={{ backgroundColor: 'rgba(0,113,227,0.12)', color: 'var(--cf-blue)', fontFamily: 'var(--cf-font-text)', fontSize: 11, fontWeight: 600, height: 20 }} />
-                    <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px' }}>{v.caption}</Typography>
-                  </Box>
-                  <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: 'var(--th-text-secondary)', letterSpacing: '-0.12px', lineHeight: 1.47 }}>
-                    Caption will appear here once content is added above...
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
+          )}
 
           <Box sx={cardSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <TagOutlinedIcon sx={{ fontSize: 18, color: 'var(--cf-blue)' }} />
-              <Typography sx={sectionLabelSx}>AI Hashtag Suggestions</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {['#content', '#creator', '#socialmedia'].map((tag) => (
-                <Chip key={tag} label={tag} size="small" sx={{ backgroundColor: 'var(--th-bg-surface)', color: 'var(--th-text-secondary)', fontFamily: 'var(--cf-font-text)', fontSize: 12, border: '1px solid var(--th-border)', opacity: 0.5 }} />
-              ))}
-              <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', alignSelf: 'center' }}>
-                Suggestions load once content is added.
-              </Typography>
-            </Box>
+            <AiHashtagsPanel
+              description={description || title}
+              platform={selectedPlatform ?? ''}
+            />
           </Box>
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Box sx={cardSx}>
             <Typography sx={sectionLabelSx}>Platforms</Typography>
+            <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mt: -1, mb: 2 }}>
+              Only connected platforms are shown.
+            </Typography>
             {connectedPlatforms.length === 0 ? (
               <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 13, color: 'var(--th-text-tertiary)' }}>
                 No connected platforms. Visit{' '}
@@ -435,12 +425,9 @@ export default function ComposerView() {
                   '& .MuiAlert-message': { lineHeight: 1.55 },
                 }}
               >
-                <strong>YouTube works differently.</strong> We don&apos;t publish directly to YouTube — you upload and go live in YouTube Studio yourself. Use the &quot;YouTube Video Live Time&quot; field below to tell us when your video went live (or will go live). We&apos;ll start pulling your analytics 72 hours after that time, when YouTube&apos;s data becomes accurate. <strong>Schedule Post is not available for YouTube</strong> — click <strong>Confirm Live Time</strong> once you&apos;ve set the date.
+                <strong>For YouTube, set the date &amp; time you want the video to go public.</strong> The video uploads as a <strong>draft</strong> — set this same public time in YouTube Studio. Other platforms go live directly at the time you set.
               </Alert>
             )}
-            <Typography sx={{ fontFamily: 'var(--cf-font-text)', fontSize: 12, color: 'var(--th-text-tertiary)', letterSpacing: '-0.12px', mt: 1.5 }}>
-              Only connected platforms are shown.
-            </Typography>
           </Box>
 
           <Box sx={cardSx}>

@@ -22,6 +22,6 @@ public class ContentPublishedPayload {
     private UUID ownerId;
     private String platform;
     private String platformPostId;
-    /** Final status string: {@code "PUBLISHED"} or {@code "FAILED"}. */
     private String finalStatus;
+    private String title;
 }

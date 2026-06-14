@@ -66,6 +66,8 @@ export default function CalendarCell({
       onClick={() => date && onDayClick(date)}
       sx={{
         minHeight: 80,
+        minWidth: 0,
+        overflow: 'hidden',
         borderRight: !isLastCol ? '1px solid var(--th-border)' : 'none',
         borderBottom: !isLastRow ? '1px solid var(--th-border)' : 'none',
         p: 0.75,
@@ -106,7 +108,7 @@ export default function CalendarCell({
             {day}
           </Typography>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
             {events.map((post) => (
               <CalendarEvent
                 key={post.id}

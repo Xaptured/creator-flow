@@ -5,6 +5,7 @@ import com.creatorflow.analytics_service.dto.response.ContentSnapshotResponse;
 import com.creatorflow.analytics_service.dto.response.PlatformSummaryResponse;
 import com.creatorflow.analytics_service.dto.response.TopPostResponse;
 import com.creatorflow.analytics_service.model.AnalyticsSnapshot;
+import com.creatorflow.analytics_service.model.PlatformType;
 import com.creatorflow.analytics_service.repository.AnalyticsSnapshotRepository;
 import com.creatorflow.analytics_service.repository.PlatformSummaryProjection;
 import org.springframework.stereotype.Service;
@@ -29,17 +30,23 @@ public class AnalyticsQueryService {
 
     /**
      * Aggregated metrics per platform for the last 30 days.
+     *
+     * @param platform optional — when null, returns one row per platform;
+     *                 when set, returns only that platform's row (empty list if no data).
      */
     @Transactional(readOnly = true)
-    public List<PlatformSummaryResponse> getSummary(UUID ownerId) {
+    public List<PlatformSummaryResponse> getSummary(UUID ownerId, PlatformType platform) {
         Instant since = Instant.now().minus(30, ChronoUnit.DAYS);
-        List<PlatformSummaryProjection> rows = snapshotRepository.summariseByOwnerSince(ownerId, since);
+        List<PlatformSummaryProjection> rows = (platform == null)
+                ? snapshotRepository.summariseByOwnerSince(ownerId, since)
+                : snapshotRepository.summariseByOwnerAndPlatformSince(ownerId, platform, since);
         return rows.stream()
                 .map(p -> new PlatformSummaryResponse(
                         p.getPlatform(),
                         p.getTotalViews(),
                         p.getTotalLikes(),
-                        p.getTotalComments()))
+                        p.getTotalComments(),
+                        p.getTotalImpressions()))
                 .toList();
     }
 
@@ -61,13 +68,20 @@ public class AnalyticsQueryService {
 
     /**
      * Top 10 posts ranked by engagement_rate DESC for the owner.
+     *
+     * @param platform optional — when null, ranks across all platforms;
+     *                 when set, ranks only that platform's posts.
      */
     @Transactional(readOnly = true)
-    public List<TopPostResponse> getTopPosts(UUID ownerId) {
-        return snapshotRepository.findTop10ByOwnerIdOrderByEngagementRateDesc(ownerId)
+    public List<TopPostResponse> getTopPosts(UUID ownerId, PlatformType platform) {
+        List<AnalyticsSnapshot> rows = (platform == null)
+                ? snapshotRepository.findTop10ByOwnerIdOrderByEngagementRateDesc(ownerId)
+                : snapshotRepository.findTop10ByOwnerIdAndPlatformOrderByEngagementRateDesc(ownerId, platform);
+        return rows
                 .stream()
                 .map(s -> new TopPostResponse(
                         s.getContentId(),
+                        s.getTitle(),
                         s.getPlatform(),
                         s.getViews(),
                         s.getLikes(),
@@ -95,13 +109,15 @@ public class AnalyticsQueryService {
                 request.platform(),
                 request.platformPostId(),
                 request.windowHours(),
-                label);
+                label,
+                null);
     }
 
     private ContentSnapshotResponse toContentSnapshotResponse(AnalyticsSnapshot s) {
         return new ContentSnapshotResponse(
                 s.getId(),
                 s.getContentId(),
+                s.getTitle(),
                 s.getPlatform(),
                 s.getViews(),
                 s.getLikes(),

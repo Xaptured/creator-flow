@@ -49,12 +49,12 @@ public class MetricsFetchScheduler {
      * @param liveAt         the instant the content became publicly visible — T=0 for all windows
      */
     public void scheduleMetricFetches(
-            UUID contentId, UUID ownerId, PlatformType platform, String platformPostId, Instant liveAt) {
+            UUID contentId, UUID ownerId, PlatformType platform, String platformPostId, Instant liveAt, String title) {
 
         PlatformScheduleConfig config = PlatformScheduleConfig.forPlatform(platform);
 
         for (WindowSpec window : config.getWindows()) {
-            scheduleJob(contentId, ownerId, platform, platformPostId, window, liveAt);
+            scheduleJob(contentId, ownerId, platform, platformPostId, window, liveAt, title);
         }
 
         log.info("Scheduled {} metric fetch jobs — contentId: {}, platform: {}, platformPostId: {}, liveAt: {}",
@@ -63,7 +63,7 @@ public class MetricsFetchScheduler {
 
     private void scheduleJob(
             UUID contentId, UUID ownerId, PlatformType platform, String platformPostId,
-            WindowSpec window, Instant liveAt) {
+            WindowSpec window, Instant liveAt, String title) {
 
         String jobKey = String.format("metrics-%s-%s-%dh", contentId, platform.name().toLowerCase(), window.hours());
 
@@ -75,6 +75,9 @@ public class MetricsFetchScheduler {
         dataMap.put(MetricsFetchJob.KEY_WINDOW_LABEL,  window.label());
         if (platformPostId != null) {
             dataMap.put(MetricsFetchJob.KEY_PLATFORM_POST_ID, platformPostId);
+        }
+        if (title != null) {
+            dataMap.put(MetricsFetchJob.KEY_TITLE, title);
         }
 
         JobDetail jobDetail = JobBuilder.newJob(MetricsFetchJob.class)

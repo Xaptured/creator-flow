@@ -10,4 +10,5 @@ public interface PlatformSummaryProjection {
     Long getTotalViews();
     Long getTotalLikes();
     Long getTotalComments();
+    Long getTotalImpressions();
 }

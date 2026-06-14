@@ -3,8 +3,10 @@ package com.creatorflow.scheduler_service.controllers;
 import com.creatorflow.scheduler_service.dto.request.RescheduleContentRequest;
 import com.creatorflow.scheduler_service.dto.request.ScheduleContentRequest;
 import com.creatorflow.scheduler_service.dto.request.UpdateContentRequest;
+import com.creatorflow.scheduler_service.dto.response.ContentCountResponse;
 import com.creatorflow.scheduler_service.dto.response.ContentStatusResponse;
 import com.creatorflow.scheduler_service.dto.response.ErrorResponse;
+import com.creatorflow.scheduler_service.model.ContentStatus;
 import com.creatorflow.scheduler_service.dto.response.ScheduleContentResponse;
 import com.creatorflow.scheduler_service.dto.response.ScheduledContentDetail;
 import com.creatorflow.scheduler_service.dto.response.ScheduledContentSummary;
@@ -94,6 +96,26 @@ public class SchedulerController {
     public ResponseEntity<List<ScheduledContentSummary>> listContent(
             @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId) {
         return ResponseEntity.ok(schedulerService.listContent(ownerId));
+    }
+
+    @Operation(summary = "Count content rows for the owner by status",
+            description = "Returns the number of content rows for the authenticated owner with the given status " +
+                    "(defaults to SCHEDULED). Used for dashboard cards (e.g. scheduled-posts count).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Count returned successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/content/count")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<ContentCountResponse> countContent(
+            @Parameter(description = "Owner UUID") @RequestParam("ownerId") UUID ownerId,
+            @Parameter(description = "Content status to count (default SCHEDULED)")
+            @RequestParam(value = "status", required = false, defaultValue = "SCHEDULED") ContentStatus status) {
+        long count = schedulerService.countByStatus(ownerId, status);
+        return ResponseEntity.ok(new ContentCountResponse(count));
     }
 
     @Operation(summary = "Get full details for a single content row",

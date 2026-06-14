@@ -56,7 +56,7 @@ public class AnalyticsService {
      * @param windowLabel    human-readable label, e.g. "1 hour", "3 days", "30 days"
      */
     public void fetchAndRecord(UUID contentId, UUID ownerId, PlatformType platform,
-                               String platformPostId, int windowHours, String windowLabel) {
+                               String platformPostId, int windowHours, String windowLabel, String title) {
         PlatformAdapter adapter = adapters.get(platform);
         if (adapter == null) {
             log.error("No adapter registered for platform: {}", platform);
@@ -68,7 +68,7 @@ public class AnalyticsService {
         // Commit the snapshot row before touching SNS — a downstream SNS failure must
         // never roll back persisted analytics data. AnalyticsSnapshotWriter is a
         // separate Spring bean so its @Transactional boundary is honoured correctly.
-        snapshotWriter.save(contentId, ownerId, platform, windowHours, windowLabel, metrics);
+        snapshotWriter.save(contentId, ownerId, platform, windowHours, windowLabel, metrics, title);
 
         publishAnalyticsUpdatedEvent(ownerId, contentId, platform, metrics, windowHours);
     }

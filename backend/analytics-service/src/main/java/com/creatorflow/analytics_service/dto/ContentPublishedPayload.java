@@ -19,4 +19,5 @@ public class ContentPublishedPayload {
     private String platformPostId;
     private String finalStatus;
     private Instant scheduledLiveAt;
+    private String title;
 }

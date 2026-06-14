@@ -38,13 +38,14 @@ public class AnalyticsSnapshotWriter {
      */
     @Transactional
     public AnalyticsSnapshot save(UUID contentId, UUID ownerId, PlatformType platform,
-                                  int windowHours, String windowLabel, PlatformMetrics metrics) {
+                                  int windowHours, String windowLabel, PlatformMetrics metrics, String title) {
         AnalyticsSnapshot snapshot = new AnalyticsSnapshot();
         snapshot.setContentId(contentId);
         snapshot.setOwnerId(ownerId);
         snapshot.setPlatform(platform);
         snapshot.setWindowHours(windowHours);
         snapshot.setWindowLabel(windowLabel);
+        snapshot.setTitle(title);
         snapshot.setViews(metrics.views());
         snapshot.setLikes(metrics.likes());
         snapshot.setComments(metrics.comments());

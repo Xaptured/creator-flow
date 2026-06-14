@@ -8,6 +8,7 @@ import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
 import { RescheduleContentRequest, ScheduleContentRequest, UpdateContentRequest } from '@/lib/request/scheduler'
 import {
+  ContentCountResponse,
   ContentStatusResponse,
   ScheduleContentResponse,
   ScheduledContentDetail,
@@ -31,6 +32,18 @@ export async function listScheduledContent(
 ): Promise<ScheduledContentSummary[]> {
   const url = buildUrl('scheduler', '/v1.0/api/scheduler/content', undefined, { ownerId })
   const { data } = await axiosClient.get<ScheduledContentSummary[]>(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  return data
+}
+
+export async function getScheduledCount(
+  ownerId: string,
+  accessToken: string,
+  status = 'SCHEDULED'
+): Promise<ContentCountResponse> {
+  const url = buildUrl('scheduler', '/v1.0/api/scheduler/content/count', undefined, { ownerId, status })
+  const { data } = await axiosClient.get<ContentCountResponse>(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   return data

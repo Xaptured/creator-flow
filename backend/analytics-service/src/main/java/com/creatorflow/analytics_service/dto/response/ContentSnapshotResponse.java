@@ -9,6 +9,7 @@ import java.util.UUID;
 public record ContentSnapshotResponse(
         UUID id,
         UUID contentId,
+        String title,
         PlatformType platform,
         Long views,
         Long likes,

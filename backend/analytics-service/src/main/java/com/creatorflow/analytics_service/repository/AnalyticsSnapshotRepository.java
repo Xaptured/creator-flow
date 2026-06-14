@@ -21,9 +21,10 @@ public interface AnalyticsSnapshotRepository extends JpaRepository<AnalyticsSnap
      */
     @Query("""
             SELECT s.platform AS platform,
-                   COALESCE(SUM(s.views), 0)    AS totalViews,
-                   COALESCE(SUM(s.likes), 0)    AS totalLikes,
-                   COALESCE(SUM(s.comments), 0) AS totalComments
+                   COALESCE(SUM(s.views), 0)       AS totalViews,
+                   COALESCE(SUM(s.likes), 0)       AS totalLikes,
+                   COALESCE(SUM(s.comments), 0)    AS totalComments,
+                   COALESCE(SUM(s.impressions), 0) AS totalImpressions
             FROM AnalyticsSnapshot s
             WHERE s.ownerId = :ownerId
               AND s.fetchedAt >= :since
@@ -31,6 +32,26 @@ public interface AnalyticsSnapshotRepository extends JpaRepository<AnalyticsSnap
             """)
     List<PlatformSummaryProjection> summariseByOwnerSince(
             @Param("ownerId") UUID ownerId,
+            @Param("since") Instant since);
+
+    /**
+     * Summary for a single platform: SUM views/likes/comments for owner + platform, last 30 days.
+     */
+    @Query("""
+            SELECT s.platform AS platform,
+                   COALESCE(SUM(s.views), 0)       AS totalViews,
+                   COALESCE(SUM(s.likes), 0)       AS totalLikes,
+                   COALESCE(SUM(s.comments), 0)    AS totalComments,
+                   COALESCE(SUM(s.impressions), 0) AS totalImpressions
+            FROM AnalyticsSnapshot s
+            WHERE s.ownerId = :ownerId
+              AND s.platform = :platform
+              AND s.fetchedAt >= :since
+            GROUP BY s.platform
+            """)
+    List<PlatformSummaryProjection> summariseByOwnerAndPlatformSince(
+            @Param("ownerId") UUID ownerId,
+            @Param("platform") PlatformType platform,
             @Param("since") Instant since);
 
     /**
@@ -51,4 +72,19 @@ public interface AnalyticsSnapshotRepository extends JpaRepository<AnalyticsSnap
             LIMIT 10
             """)
     List<AnalyticsSnapshot> findTop10ByOwnerIdOrderByEngagementRateDesc(@Param("ownerId") UUID ownerId);
+
+    /**
+     * Top posts for a single platform: top 10 by engagement_rate DESC for owner + platform.
+     */
+    @Query("""
+            SELECT s FROM AnalyticsSnapshot s
+            WHERE s.ownerId = :ownerId
+              AND s.platform = :platform
+              AND s.engagementRate IS NOT NULL
+            ORDER BY s.engagementRate DESC
+            LIMIT 10
+            """)
+    List<AnalyticsSnapshot> findTop10ByOwnerIdAndPlatformOrderByEngagementRateDesc(
+            @Param("ownerId") UUID ownerId,
+            @Param("platform") PlatformType platform);
 }

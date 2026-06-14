@@ -54,6 +54,10 @@ public class AnalyticsSnapshot {
     @Column(name = "window_label", length = 20)
     private String windowLabel;
 
+    /** Human-readable content title, threaded from the publish event for display. */
+    @Column(name = "title", length = 500)
+    private String title;
+
     @Column(name = "fetched_at", nullable = false)
     private Instant fetchedAt;
 
@@ -99,6 +103,9 @@ public class AnalyticsSnapshot {
 
     public String getWindowLabel() { return windowLabel; }
     public void setWindowLabel(String windowLabel) { this.windowLabel = windowLabel; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
     public Instant getFetchedAt() { return fetchedAt; }
     public void setFetchedAt(Instant fetchedAt) { this.fetchedAt = fetchedAt; }

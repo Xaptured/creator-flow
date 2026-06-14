@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Box, Typography, Grid, Chip, Alert, AlertTitle, IconButton, Link } from '@mui/material'
+import { Box, Typography, Grid, Alert, AlertTitle, IconButton, Link, Skeleton } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import useSWR from 'swr'
-import { getPlatformStatus, getUserPreferences } from '@/service/getService'
+import { getAnalyticsSummary, getPlatformStatus, getScheduledCount, getUserPreferences } from '@/service/getService'
 import { PlatformStatusResponse } from '@/lib/response/platform'
+import { PlatformSummary } from '@/lib/response/analytics'
+import { ContentCountResponse } from '@/lib/response/scheduler'
 import { UserPreferencesResponse } from '@/lib/response/user'
+import AiInsightsCard from '@/components/app/ai/AiInsightsCard'
 
 const cardSx = {
   backgroundColor: 'var(--th-bg-card)',
@@ -20,18 +22,11 @@ const cardSx = {
   boxShadow: 'var(--cf-card-shadow)',
 }
 
-const statCards = [
-  { label: 'Total Views', value: '—', delta: '+0%', platform: 'All Platforms' },
-  { label: 'Likes', value: '—', delta: '+0%', platform: 'All Platforms' },
-  { label: 'Comments', value: '—', delta: '+0%', platform: 'All Platforms' },
-  { label: 'Scheduled Posts', value: '—', delta: 'This week', platform: 'Upcoming' },
-]
-
-const aiInsights = [
-  'Your best posting time is Tuesday at 6 PM — data coming soon.',
-  'Engagement rate trend will appear once platforms are connected.',
-  'Caption suggestions powered by Claude AI will surface here.',
-]
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
 
 const contentGaps = [
   "You haven't posted in 30+ days — connect a platform to track gaps.",
@@ -85,6 +80,37 @@ export default function DashboardHome() {
     getUserPreferences,
     { revalidateOnFocus: false }
   )
+
+  const { data: summary } = useSWR<PlatformSummary[]>(
+    '/api/analytics/summary',
+    () => getAnalyticsSummary(),
+    { revalidateOnFocus: false }
+  )
+
+  const { data: scheduled } = useSWR<ContentCountResponse>(
+    '/api/scheduler/content/count',
+    () => getScheduledCount('SCHEDULED'),
+    { revalidateOnFocus: false }
+  )
+
+  const totals = (summary ?? []).reduce(
+    (acc, r) => ({
+      views: acc.views + (r.views ?? 0),
+      likes: acc.likes + (r.likes ?? 0),
+      comments: acc.comments + (r.comments ?? 0),
+    }),
+    { views: 0, likes: 0, comments: 0 }
+  )
+
+  const summaryLoading = summary === undefined
+  const scheduledLoading = scheduled === undefined
+
+  const statCards = [
+    { label: 'Total Views', value: formatCount(totals.views), loading: summaryLoading, delta: 'Last 30 days', platform: 'All Platforms' },
+    { label: 'Likes', value: formatCount(totals.likes), loading: summaryLoading, delta: 'Last 30 days', platform: 'All Platforms' },
+    { label: 'Comments', value: formatCount(totals.comments), loading: summaryLoading, delta: 'Last 30 days', platform: 'All Platforms' },
+    { label: 'Scheduled Posts', value: scheduled ? String(scheduled.count) : '0', loading: scheduledLoading, delta: 'Upcoming', platform: 'Scheduler' },
+  ]
 
   // Re-show the timezone alert if the saved timezone changes
   useEffect(() => {
@@ -215,19 +241,23 @@ export default function DashboardHome() {
               >
                 {stat.label}
               </Typography>
-              <Typography
-                sx={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: 32,
-                  fontWeight: 600,
-                  color: 'var(--th-text-primary)',
-                  letterSpacing: '-0.28px',
-                  lineHeight: 1.1,
-                  mb: 1,
-                }}
-              >
-                {stat.value}
-              </Typography>
+              {stat.loading ? (
+                <Skeleton variant="text" width={80} height={42} sx={{ bgcolor: 'var(--th-border)', mb: 1 }} />
+              ) : (
+                <Typography
+                  sx={{
+                    fontFamily: 'var(--cf-font-display)',
+                    fontSize: 32,
+                    fontWeight: 600,
+                    color: 'var(--th-text-primary)',
+                    letterSpacing: '-0.28px',
+                    lineHeight: 1.1,
+                    mb: 1,
+                  }}
+                >
+                  {stat.value}
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TrendingUpOutlinedIcon sx={{ fontSize: 14, color: 'var(--th-text-tertiary)' }} />
                 <Typography
@@ -248,61 +278,7 @@ export default function DashboardHome() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={6}>
-          <Box sx={cardSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
-              <AutoAwesomeOutlinedIcon sx={{ fontSize: 18, color: 'var(--cf-blue)' }} />
-              <Typography
-                sx={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: 'var(--th-text-primary)',
-                  letterSpacing: '-0.374px',
-                }}
-              >
-                AI Insights
-              </Typography>
-              <Chip
-                label="Top 3"
-                size="small"
-                sx={{
-                  backgroundColor: 'rgba(0, 113, 227, 0.15)',
-                  color: 'var(--cf-blue)',
-                  fontFamily: 'var(--cf-font-text)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  height: 20,
-                }}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {aiInsights.map((tip, i) => (
-                <Box key={i} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-                  <Box
-                    sx={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--cf-blue)',
-                      mt: '7px',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Typography
-                    sx={{
-                      fontFamily: 'var(--cf-font-text)',
-                      fontSize: 14,
-                      color: 'var(--th-text-secondary)',
-                      letterSpacing: '-0.224px',
-                      lineHeight: 1.47,
-                    }}
-                  >
-                    {tip}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
+          <AiInsightsCard />
         </Grid>
 
         <Grid item xs={12} sm={6} lg={3}>

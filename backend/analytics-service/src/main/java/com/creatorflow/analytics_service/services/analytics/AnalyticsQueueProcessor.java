@@ -83,7 +83,8 @@ public class AnalyticsQueueProcessor {
             Instant liveAt = resolveLiveAt(payload, sqsMessage.messageId());
 
             metricsFetchScheduler.scheduleMetricFetches(
-                    payload.getContentId(), payload.getOwnerId(), platform, payload.getPlatformPostId(), liveAt);
+                    payload.getContentId(), payload.getOwnerId(), platform, payload.getPlatformPostId(), liveAt,
+                    payload.getTitle());
             log.info("analytics-queue: scheduled metric fetch jobs — contentId: {}, platform: {}, platformPostId: {}, liveAt: {}",
                     payload.getContentId(), platform, payload.getPlatformPostId(), liveAt);
 

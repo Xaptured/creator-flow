@@ -209,12 +209,14 @@ public class IgContainerPollingProcessor {
 
     private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId, String platformPostId) {
         try {
+            String title = contentRepository.findById(contentId).map(Content::getTitle).orElse(null);
             ContentPublishedPayload payload = new ContentPublishedPayload(
                     contentId,
                     ownerId,
                     "INSTAGRAM",
                     platformPostId,
-                    EVENT_PUBLISHED.equals(eventType) ? "PUBLISHED" : "FAILED");
+                    EVENT_PUBLISHED.equals(eventType) ? "PUBLISHED" : "FAILED",
+                    title);
             String payloadJson = objectMapper.writeValueAsString(payload);
             CreatorflowEventMessage event = CreatorflowEventMessage.of(eventType, payloadJson);
             snsPublisher.publishToTopic("content-published", event);
