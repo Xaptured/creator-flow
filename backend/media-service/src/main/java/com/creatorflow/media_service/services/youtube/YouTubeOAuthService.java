@@ -101,7 +101,7 @@ public class YouTubeOAuthService {
         youTubeChannelRepository.save(channel);
 
         try {
-            platformTokenCacheService.warmCache(ownerId, "YOUTUBE");
+            platformTokenCacheService.putInCache(ownerId, "YOUTUBE", saved);
         } catch (Exception e) {
             log.warn("Failed to warm YouTube token cache after connect: ownerId={} — cache will populate on next access", ownerId, e);
         }
@@ -138,6 +138,7 @@ public class YouTubeOAuthService {
                         account.getExpiresAt().minusMinutes(TOKEN_REFRESH_THRESHOLD_MINUTES));
 
         if (!needsRefresh) {
+            log.info("Token refresh not required for Youtube: ownerId={}", ownerId);
             return;
         }
 
@@ -173,8 +174,9 @@ public class YouTubeOAuthService {
 
         try {
             platformTokenCacheService.evictPlatformToken(ownerId, "YOUTUBE");
+            platformTokenCacheService.putInCache(ownerId, "YOUTUBE", account);
         } catch (Exception e) {
-            log.warn("Failed to evict YouTube token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+            log.warn("Failed to update YouTube token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
         }
         log.info("YouTube token refreshed: ownerId={} newExpiresAt={}", ownerId, newExpiresAt);
     }

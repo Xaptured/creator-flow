@@ -4,10 +4,11 @@ import com.creatorflow.media_service.exception.PlatformNotConnectedException;
 import com.creatorflow.media_service.model.PlatformAccount;
 import com.creatorflow.media_service.model.PlatformType;
 import com.creatorflow.media_service.repository.PlatformAccountRepository;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -15,10 +16,15 @@ import java.util.UUID;
 @Service
 public class PlatformTokenCacheService {
 
-    private final PlatformAccountRepository platformAccountRepository;
+    private static final String TOKEN_CACHE = "platformTokens";
 
-    public PlatformTokenCacheService(PlatformAccountRepository platformAccountRepository) {
+    private final PlatformAccountRepository platformAccountRepository;
+    private final CacheManager cacheManager;
+
+    public PlatformTokenCacheService(PlatformAccountRepository platformAccountRepository,
+                                     CacheManager cacheManager) {
         this.platformAccountRepository = platformAccountRepository;
+        this.cacheManager = cacheManager;
     }
 
     /**
@@ -56,21 +62,37 @@ public class PlatformTokenCacheService {
     }
 
     /**
-     * Evicts then immediately re-populates the cache from the DB.
+     * Puts an already-loaded {@link PlatformAccount} into the token cache directly.
      *
-     * <p>Must be called AFTER the caller's transaction has committed — hence
-     * {@code REQUIRES_NEW}: this opens a fresh transaction that is guaranteed to
-     * see the row written by the caller. Calling {@link #getPlatformAccount} from
-     * inside the caller's own {@code @Transactional} method would read an
-     * uncommitted row and potentially cache stale or absent data.</p>
+     * <p>Used by OAuth {@code handleCallback} at connect: the caller passes the
+     * account it just saved, so we do NOT re-read the DB. This avoids the
+     * transaction-visibility trap — the caller's save is not yet committed, so a
+     * fresh DB read (especially in a new transaction) would not see the row.</p>
      *
-     * <p>Called by OAuth {@code handleCallback} implementations for all three
-     * platforms immediately after connect, so that analytics-service can read the
-     * token from Redis without waiting for a media-service publish call to warm it.</p>
+     * <p>Uses the same key format as {@code @Cacheable} (ownerId + "::" + platform).
+     * We call {@code cacheManager} directly rather than a {@code @Cacheable}
+     * method because Spring AOP does not intercept self-invocation.</p>
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void putInCache(UUID ownerId, String platform, PlatformAccount account) {
+        Cache cache = cacheManager.getCache(TOKEN_CACHE);
+        if (cache != null) {
+            cache.put(ownerId + "::" + platform, account);
+        }
+    }
+
+    /**
+     * Reads the account from the DB and populates the cache. Safe only when the
+     * account is already committed — used by the on-demand refresh+warm path
+     * (analytics fallback), where the refresh transaction has committed first.
+     * For connect, use {@link #putInCache} with the freshly saved account instead.
+     */
+    @Transactional(readOnly = true)
     public void warmCache(UUID ownerId, String platform) {
-        evictPlatformToken(ownerId, platform);
-        getPlatformAccount(ownerId, platform);
+        PlatformType platformType = PlatformType.valueOf(platform.toUpperCase());
+        PlatformAccount account = platformAccountRepository
+                .findByOwnerIdAndPlatform(ownerId, platformType)
+                .orElseThrow(() -> new PlatformNotConnectedException(
+                        platform + " not connected for user: " + ownerId));
+        putInCache(ownerId, platform, account);
     }
 }

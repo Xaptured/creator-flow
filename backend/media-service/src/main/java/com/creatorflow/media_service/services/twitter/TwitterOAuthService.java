@@ -133,7 +133,7 @@ public class TwitterOAuthService {
         PlatformAccount saved = platformAccountRepository.save(account);
 
         try {
-            platformTokenCacheService.warmCache(ownerId, "TWITTER");
+            platformTokenCacheService.putInCache(ownerId, "TWITTER", saved);
         } catch (Exception e) {
             log.warn("Failed to warm Twitter token cache after connect: ownerId={} — cache will populate on next access", ownerId, e);
         }
@@ -172,6 +172,7 @@ public class TwitterOAuthService {
                         account.getExpiresAt().minusMinutes(TOKEN_REFRESH_THRESHOLD_MINUTES));
 
         if (!needsRefresh) {
+            log.info("Token refresh not required for Twitter: ownerId={}", ownerId);
             return;
         }
 
@@ -209,8 +210,9 @@ public class TwitterOAuthService {
 
         try {
             platformTokenCacheService.evictPlatformToken(ownerId, "TWITTER");
+            platformTokenCacheService.putInCache(ownerId, "TWITTER", account);
         } catch (Exception e) {
-            log.warn("Failed to evict Twitter token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+            log.warn("Failed to update Twitter token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
         }
         log.info("Twitter token refreshed: ownerId={}", ownerId);
     }

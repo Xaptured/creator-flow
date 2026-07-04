@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { EmbeddingsService } from '../../embeddings/embeddings.service.js';
 import {
   AnalyticsEventMessage,
   AnalyticsUpdatedEvent,
@@ -39,7 +40,10 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
   private readonly pollingDisabled: boolean;
   private running = false;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly embeddingsService: EmbeddingsService,
+  ) {
     const region = this.config.get<string>(ENV.AWS_REGION, DEFAULTS.AWS_REGION);
     const endpoint = this.config.get<string>(ENV.AWS_SQS_ENDPOINT);
     this.client = new SQSClient({
@@ -116,17 +120,14 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Stub: triggers the embedding pipeline for a given analytics event.
-   *
-   * Replace with a real call to EmbeddingsService once the pipeline is wired.
+   * Triggers the embedding pipeline for a given analytics event: fetches the
+   * content text and stores its embedding. Idempotent — re-delivery is safe
+   * because the upsert is keyed on (content_id, model).
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
   private async triggerEmbeddingPipeline(
     event: AnalyticsUpdatedEvent,
   ): Promise<void> {
-    this.logger.log(
-      `Embedding pipeline stub triggered for contentId=${event.contentId}`,
-    );
+    await this.embeddingsService.embedContent(event.contentId);
   }
 
   /**

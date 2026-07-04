@@ -56,6 +56,7 @@ export interface ScheduledContentDetail {
   platformTargets: PlatformType[]
   status: ContentStatus
   scheduledAt: string | null
+  liveAt: string | null
   createdAt: string
   updatedAt: string
 }

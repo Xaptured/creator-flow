@@ -104,7 +104,7 @@ public class InstagramOAuthService {
         PlatformAccount saved = platformAccountRepository.save(account);
 
         try {
-            platformTokenCacheService.warmCache(ownerId, "INSTAGRAM");
+            platformTokenCacheService.putInCache(ownerId, "INSTAGRAM", saved);
         } catch (Exception e) {
             log.warn("Failed to warm Instagram token cache after connect: ownerId={} — cache will populate on next access", ownerId, e);
         }
@@ -134,6 +134,7 @@ public class InstagramOAuthService {
                         account.getExpiresAt().minusDays(TOKEN_REFRESH_THRESHOLD_DAYS));
 
         if (!needsRefresh) {
+            log.info("Token refresh not required for Instagram: ownerId={}", ownerId);
             return;
         }
 
@@ -146,8 +147,9 @@ public class InstagramOAuthService {
 
         try {
             platformTokenCacheService.evictPlatformToken(ownerId, "INSTAGRAM");
+            platformTokenCacheService.putInCache(ownerId, "INSTAGRAM", account);
         } catch (Exception e) {
-            log.warn("Failed to evict Instagram token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
+            log.warn("Failed to update Instagram token cache after refresh: ownerId={} — stale cache possible until TTL expires", ownerId, e);
         }
 
         log.info("Instagram token refreshed: ownerId={}", ownerId);

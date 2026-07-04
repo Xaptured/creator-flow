@@ -43,6 +43,7 @@ public class PlatformRefreshService {
     private final InstagramOAuthService instagramOAuthService;
     private final YouTubeOAuthService youTubeOAuthService;
     private final TwitterOAuthService twitterOAuthService;
+    private final PlatformTokenCacheService platformTokenCacheService;
 
     @Value("${app.token-refresh.refresh-ahead-hours:12}")
     private int refreshAheadHours;
@@ -50,11 +51,26 @@ public class PlatformRefreshService {
     public PlatformRefreshService(PlatformAccountRepository platformAccountRepository,
                                   InstagramOAuthService instagramOAuthService,
                                   YouTubeOAuthService youTubeOAuthService,
-                                  TwitterOAuthService twitterOAuthService) {
+                                  TwitterOAuthService twitterOAuthService,
+                                  PlatformTokenCacheService platformTokenCacheService) {
         this.platformAccountRepository = platformAccountRepository;
         this.instagramOAuthService = instagramOAuthService;
         this.youTubeOAuthService = youTubeOAuthService;
         this.twitterOAuthService = twitterOAuthService;
+        this.platformTokenCacheService = platformTokenCacheService;
+    }
+
+    /**
+     * Refresh a single account's token if needed, then (re)populate the Redis
+     * token cache so downstream readers (analytics-service) get a valid token.
+     *
+     * Handles both cases: an expired token (dispatchRefresh refreshes it) and a
+     * valid-but-uncached token (warmCache populates the cache from the DB).
+     * Called on-demand by analytics-service via the internal endpoint.
+     */
+    public void refreshAndWarm(UUID ownerId, PlatformType platform) {
+        dispatchRefresh(ownerId, platform);
+        platformTokenCacheService.warmCache(ownerId, platform.name());
     }
 
     /**

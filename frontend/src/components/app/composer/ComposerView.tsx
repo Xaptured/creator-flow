@@ -136,8 +136,9 @@ export default function ComposerView() {
         setMediaFileId(post.mediaFileId ?? null)
         setSelectedPlatform((post.platformTargets?.[0] as PlatformType) ?? null)
         setPostStatus(post.status)
-        if (post.scheduledAt) {
-          setScheduledAt(toLocalDatetimeLocal(post.scheduledAt, userTimezone))
+        const prefillTime = post.liveAt ?? post.scheduledAt
+        if (prefillTime) {
+          setScheduledAt(toLocalDatetimeLocal(prefillTime, userTimezone))
         }
       })
       .catch((err) => {
@@ -202,17 +203,28 @@ export default function ComposerView() {
         const scheduledAtUtc = (!publishNow && scheduledAt)
           ? toUtcIso(scheduledAt, userTimezone)
           : undefined
+        // YouTube publishes immediately but goes live later — send the entered
+        // time as liveAt (analytics anchor), only for YouTube.
+        const liveAtUtc = (selectedPlatform === PlatformType.YOUTUBE && scheduledAt)
+          ? toUtcIso(scheduledAt, userTimezone)
+          : undefined
         await updateScheduledContent(editId, {
           title: title.trim(),
           description: description.trim() || undefined,
           mediaFileId: mediaFileId ?? undefined,
           platformTargets: selectedPlatform ? [selectedPlatform] : [],
           scheduledAt: scheduledAtUtc,
+          liveAt: liveAtUtc,
         })
         setEditSuccess(true)
         setTimeout(() => router.push('/dashboard/calendar'), 1500)
       } else {
         const scheduledAtUtc = (!publishNow && scheduledAt)
+          ? toUtcIso(scheduledAt, userTimezone)
+          : undefined
+        // YouTube publishes immediately but goes live later — send the entered
+        // time as liveAt (analytics anchor), only for YouTube.
+        const liveAtUtc = (selectedPlatform === PlatformType.YOUTUBE && scheduledAt)
           ? toUtcIso(scheduledAt, userTimezone)
           : undefined
         const res = await scheduleContent({
@@ -221,6 +233,7 @@ export default function ComposerView() {
           mediaFileId: mediaFileId ?? undefined,
           platformTargets: selectedPlatform ? [selectedPlatform] : [],
           scheduledAt: scheduledAtUtc,
+          liveAt: liveAtUtc,
         })
         setResults(res)
         if (res.some((r) => !r.error)) {

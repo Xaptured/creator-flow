@@ -16,6 +16,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -49,6 +50,9 @@ public class Content {
 
     @Column(name = "scheduled_at")
     private LocalDateTime scheduledAt;
+
+    @Column(name = "live_at")
+    private Instant liveAt;
 
     @Column(name = "media_file_id")
     private UUID mediaFileId;
