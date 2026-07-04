@@ -89,6 +89,16 @@ springdoc:
   default-produces-media-type: application/json
 
 app:
+  media-service:
+    base-url: ${MEDIA_SERVICE_BASE_URL}
+  internal:
+    secret: ${INTERNAL_SERVICE_SECRET}
+  # TEST-ONLY: when accelerated=true, metric-fetch windows ignore the real hour
+  # schedule and fire after the minute offsets below (window 0 at 5m, 1 at 10m,
+  # 2 at 15m by default). Keep accelerated=false in production.
+  metrics:
+    accelerated: ${METRICS_ACCELERATED:true}
+    accelerated-offset-minutes: ${METRICS_ACCELERATED_OFFSETS:10,15,20}
   cors:
     allowed-origins:
       - http://localhost:3000

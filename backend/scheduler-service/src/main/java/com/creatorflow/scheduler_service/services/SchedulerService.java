@@ -62,6 +62,7 @@ public class SchedulerService {
             content.setMediaFileId(request.getMediaFileId());
             content.setPlatformTargets(serialise(List.of(platform)));
             content.setScheduledAt(scheduledAt);
+            content.setLiveAt(request.getLiveAt());
             content.setStatus(ContentStatus.SCHEDULED);
 
             try {
@@ -127,6 +128,9 @@ public class SchedulerService {
         content.setPlatformTargets(serialise(request.getPlatformTargets()));
         if (request.getScheduledAt() != null) {
             content.setScheduledAt(request.getScheduledAt());
+        }
+        if (request.getLiveAt() != null) {
+            content.setLiveAt(request.getLiveAt());
         }
         if (status == ContentStatus.FAILED) {
             content.setStatus(ContentStatus.SCHEDULED);

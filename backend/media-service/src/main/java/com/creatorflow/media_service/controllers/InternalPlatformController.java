@@ -2,6 +2,7 @@ package com.creatorflow.media_service.controllers;
 
 import com.creatorflow.media_service.dto.response.ErrorResponse;
 import com.creatorflow.media_service.dto.response.TokenRefreshResponse;
+import com.creatorflow.media_service.model.PlatformType;
 import com.creatorflow.media_service.services.PlatformRefreshService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,7 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 /**
  * Internal-only endpoints called by sibling services (scheduler-service).
@@ -79,5 +83,38 @@ public class InternalPlatformController {
                 summary.attempted(), summary.succeeded(), summary.failed());
 
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Refresh + warm one owner's platform token",
+            description = "Called on-demand by analytics-service when a token is missing/expired in the " +
+                    "Redis cache. Refreshes the token if needed and re-populates the cache so the next read " +
+                    "succeeds. Protected by X-Internal-Secret header — not a public endpoint."
+    )
+    @PostMapping("/refresh-and-warm")
+    public ResponseEntity<?> refreshAndWarm(
+            @RequestHeader(value = INTERNAL_SECRET_HEADER, required = false) String secret,
+            @RequestParam UUID ownerId,
+            @RequestParam String platform) {
+
+        if (!internalSecret.equals(secret)) {
+            log.warn("InternalPlatformController: rejected refresh-and-warm with invalid or missing internal secret");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ErrorResponse.of("UNAUTHORIZED", 401, "Invalid or missing internal secret"));
+        }
+
+        try {
+            PlatformType platformType = PlatformType.valueOf(platform.toUpperCase());
+            platformRefreshService.refreshAndWarm(ownerId, platformType);
+            log.info("InternalPlatformController: refresh-and-warm OK — ownerId={} platform={}", ownerId, platformType);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ErrorResponse.of("BAD_REQUEST", 400, "Unknown platform: " + platform));
+        } catch (Exception e) {
+            log.error("InternalPlatformController: refresh-and-warm failed — ownerId={} platform={}", ownerId, platform, e);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(ErrorResponse.of("REFRESH_FAILED", 502, "Could not refresh/warm token"));
+        }
     }
 }

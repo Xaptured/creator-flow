@@ -27,3 +27,27 @@ export const FIND_ONE = `
   FROM   content_embeddings
   WHERE  content_id = $1 AND model = $2
 `;
+
+/** Fetch the text used to build an embedding for a single content row. */
+export const GET_CONTENT_TEXT = `
+  SELECT id, title, description
+  FROM   content
+  WHERE  id = $1
+`;
+
+/**
+ * Page through PUBLISHED content that has no embedding yet for the given model.
+ * Used by the one-time backfill so historical content gets seeded.
+ * $1 = model, $2 = limit, $3 = offset
+ */
+export const FIND_PUBLISHED_WITHOUT_EMBEDDING = `
+  SELECT c.id, c.title, c.description
+  FROM   content c
+  WHERE  c.status = 'PUBLISHED'
+    AND NOT EXISTS (
+      SELECT 1 FROM content_embeddings ce
+      WHERE ce.content_id = c.id AND ce.model = $1
+    )
+  ORDER  BY c.created_at ASC
+  LIMIT  $2 OFFSET $3
+`;

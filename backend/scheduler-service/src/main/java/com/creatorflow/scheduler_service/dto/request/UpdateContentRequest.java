@@ -28,4 +28,5 @@ public class UpdateContentRequest {
     private UUID mediaFileId;
     private List<PlatformType> platformTargets;
     private Instant scheduledAt;
+    private Instant liveAt;
 }

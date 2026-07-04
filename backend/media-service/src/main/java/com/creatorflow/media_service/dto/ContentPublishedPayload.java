@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -24,4 +25,5 @@ public class ContentPublishedPayload {
     private String platformPostId;
     private String finalStatus;
     private String title;
+    private Instant scheduledLiveAt;
 }

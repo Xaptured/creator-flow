@@ -27,6 +27,7 @@ public class ScheduledContentDetail {
     private List<PlatformType> platformTargets;
     private ContentStatus status;
     private Instant scheduledAt;
+    private Instant liveAt;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -38,6 +39,7 @@ public class ScheduledContentDetail {
         d.mediaFileId = content.getMediaFileId();
         d.status = content.getStatus();
         d.scheduledAt = content.getScheduledAt();
+        d.liveAt = content.getLiveAt();
         d.createdAt = content.getCreatedAt();
         d.updatedAt = content.getUpdatedAt();
 

@@ -51,6 +51,9 @@ public class Content {
     @Column(name = "scheduled_at")
     private Instant scheduledAt;
 
+    @Column(name = "live_at")
+    private Instant liveAt;
+
     @Column(name = "media_file_id")
     private UUID mediaFileId;
 

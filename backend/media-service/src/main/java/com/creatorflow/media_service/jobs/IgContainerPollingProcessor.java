@@ -23,7 +23,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -209,14 +211,21 @@ public class IgContainerPollingProcessor {
 
     private void emitStatusEvent(String eventType, UUID contentId, UUID ownerId, String platformPostId) {
         try {
-            String title = contentRepository.findById(contentId).map(Content::getTitle).orElse(null);
+            Optional<Content> contentOpt = contentRepository.findById(contentId);
+            String title = contentOpt.map(Content::getTitle).orElse(null);
+            Instant liveAt = contentOpt.map(Content::getLiveAt).orElse(null);
+            LocalDateTime scheduledAt = contentOpt.map(Content::getScheduledAt).orElse(null);
+            Instant scheduledLiveAt = liveAt != null
+                    ? liveAt
+                    : (scheduledAt == null ? null : scheduledAt.atZone(ZoneId.systemDefault()).toInstant());
             ContentPublishedPayload payload = new ContentPublishedPayload(
                     contentId,
                     ownerId,
                     "INSTAGRAM",
                     platformPostId,
                     EVENT_PUBLISHED.equals(eventType) ? "PUBLISHED" : "FAILED",
-                    title);
+                    title,
+                    scheduledLiveAt);
             String payloadJson = objectMapper.writeValueAsString(payload);
             CreatorflowEventMessage event = CreatorflowEventMessage.of(eventType, payloadJson);
             snsPublisher.publishToTopic("content-published", event);

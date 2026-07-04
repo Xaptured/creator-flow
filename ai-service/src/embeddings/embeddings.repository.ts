@@ -6,12 +6,15 @@ import { fromSql } from 'pgvector';
 
 import { ContentEmbeddingDto } from './dto/content-embedding.dto.js';
 import { SimilarContentDto } from './dto/similar-content.dto.js';
+import { ContentText, ContentTextRow } from './model/content-text.model.js';
 import { EmbeddingRow } from './model/embedding-row.model.js';
 import { SimilarRow } from './model/similar-row.model.js';
 import {
   DELETE_BY_CONTENT_ID,
   FIND_ONE,
+  FIND_PUBLISHED_WITHOUT_EMBEDDING,
   FIND_SIMILAR,
+  GET_CONTENT_TEXT,
   UPSERT_EMBEDDING,
 } from './sql/embeddings.sql.js';
 
@@ -90,6 +93,37 @@ export class EmbeddingsRepository implements OnModuleInit, OnModuleDestroy {
       model,
     ]);
     return rows.length > 0 ? this.mapRow(rows[0]) : null;
+  }
+
+  /** Fetch title + description for a single content row (embedding input). */
+  async getContentText(contentId: string): Promise<ContentText | null> {
+    const { rows } = await this.pool.query<ContentTextRow>(GET_CONTENT_TEXT, [
+      contentId,
+    ]);
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    return {
+      contentId: row.id,
+      title: row.title,
+      description: row.description,
+    };
+  }
+
+  /** Page through PUBLISHED content without an embedding for the given model. */
+  async findPublishedWithoutEmbedding(
+    model: string,
+    limit: number,
+    offset: number,
+  ): Promise<ContentText[]> {
+    const { rows } = await this.pool.query<ContentTextRow>(
+      FIND_PUBLISHED_WITHOUT_EMBEDDING,
+      [model, limit, offset],
+    );
+    return rows.map((row) => ({
+      contentId: row.id,
+      title: row.title,
+      description: row.description,
+    }));
   }
 
   private mapRow(row: EmbeddingRow): ContentEmbeddingDto {
