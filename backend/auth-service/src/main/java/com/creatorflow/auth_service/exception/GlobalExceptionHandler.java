@@ -17,6 +17,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("USER_NOT_FOUND", HttpStatus.NOT_FOUND, ex.getMessage()));
     }
 
+    @ExceptionHandler(InvalidRegionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRegion(InvalidRegionException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of("INVALID_REGION", HttpStatus.BAD_REQUEST, ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()

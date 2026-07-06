@@ -30,7 +30,7 @@ import InstagramIcon from '@mui/icons-material/Instagram'
 import TwitterIcon from '@mui/icons-material/Twitter'
 import { PlatformType } from '@/lib/response/scheduler'
 import { PlatformStatusResponse } from '@/lib/response/platform'
-import { checkDisconnect, getNiches, getPlatformStatus, getTimezones, getUserPreferences } from '@/service/getService'
+import { checkDisconnect, getNiches, getPlatformStatus, getRegions, getTimezones, getUserPreferences } from '@/service/getService'
 import { disconnectPlatform } from '@/service/deleteService'
 import { updateUserPreferences } from '@/service/putService'
 import { toApiError } from '@/service/errorService'
@@ -359,6 +359,12 @@ export default function SettingsView() {
     { revalidateOnFocus: false }
   )
 
+  const { data: regionsData, isLoading: regionsLoading } = useSWR(
+    '/api/user/regions',
+    getRegions,
+    { revalidateOnFocus: false }
+  )
+
   const [disconnecting, setDisconnecting] = useState<PlatformType | null>(null)
   const [checking, setChecking] = useState<PlatformType | null>(null)
 
@@ -369,6 +375,7 @@ export default function SettingsView() {
   const [timezone, setTimezone] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
   const [niche, setNiche] = useState<string>('')
+  const [region, setRegion] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -377,8 +384,10 @@ export default function SettingsView() {
   const effectiveTimezone = timezone || preferences?.timezone || 'UTC'
   const effectiveDisplayName = displayName !== '' ? displayName : (preferences?.displayName ?? '')
   const effectiveNiche = niche !== '' ? niche : (preferences?.niche ?? '')
+  const effectiveRegion = region || preferences?.region || 'US'
   const niches = nichesData?.niches ?? []
   const timezones = timezonesData?.timezones ?? []
+  const regions = regionsData?.regions ?? []
 
   const statusMap = new Map<PlatformType, PlatformStatusResponse>()
   if (statuses) {
@@ -440,6 +449,7 @@ export default function SettingsView() {
         timezone: effectiveTimezone,
         displayName: effectiveDisplayName || null,
         niche: effectiveNiche || null,
+        region: effectiveRegion,
       })
       await mutatePrefs()
       setSaveSuccess(true)
@@ -650,6 +660,37 @@ export default function SettingsView() {
                     </Select>
                   )}
                 </FormControl>
+
+                <Box>
+                  <FormControl fullWidth sx={selectSx}>
+                    <InputLabel>Trending Region</InputLabel>
+                    {prefsLoading || regionsLoading ? (
+                      <Skeleton variant="rounded" height={52} sx={{ borderRadius: '8px' }} />
+                    ) : (
+                      <Select
+                        label="Trending Region"
+                        value={effectiveRegion}
+                        onChange={(e) => setRegion(e.target.value)}
+                        MenuProps={{ PaperProps: { sx: menuPaperSx } }}
+                      >
+                        {regions.map((r) => (
+                          <MenuItem key={r.code} value={r.code}>{r.name}</MenuItem>
+                        ))}
+                      </Select>
+                    )}
+                  </FormControl>
+                  <Typography
+                    sx={{
+                      fontFamily: 'var(--cf-font-text)',
+                      fontSize: 12,
+                      color: 'var(--th-text-tertiary)',
+                      letterSpacing: '-0.12px',
+                      mt: 0.75,
+                    }}
+                  >
+                    The market used for trending topics and content gap suggestions - separate from your timezone.
+                  </Typography>
+                </Box>
               </Box>
             </Box>
 

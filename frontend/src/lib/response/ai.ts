@@ -30,3 +30,11 @@ export interface HashtagItem {
 export interface HashtagResponse {
   hashtags: HashtagItem[]
 }
+
+export type TrendingPlatform = 'YOUTUBE' | 'INSTAGRAM' | 'TWITTER'
+
+export interface ContentGap {
+  topic: string
+  platform: TrendingPlatform
+  score: number
+}

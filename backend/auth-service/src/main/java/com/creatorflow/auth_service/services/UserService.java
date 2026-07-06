@@ -3,12 +3,15 @@ package com.creatorflow.auth_service.services;
 import com.creatorflow.auth_service.dto.request.ProvisionUserRequest;
 import com.creatorflow.auth_service.dto.request.UserPreferencesRequest;
 import com.creatorflow.auth_service.dto.response.NichesResponse;
+import com.creatorflow.auth_service.dto.response.RegionsResponse;
 import com.creatorflow.auth_service.dto.response.TimezonesResponse;
 import com.creatorflow.auth_service.dto.response.UserMeResponse;
 import com.creatorflow.auth_service.dto.response.UserPreferencesResponse;
+import com.creatorflow.auth_service.exception.InvalidRegionException;
 import com.creatorflow.auth_service.exception.UserNotFoundException;
 import com.creatorflow.auth_service.model.User;
 import com.creatorflow.auth_service.repository.NicheRepository;
+import com.creatorflow.auth_service.repository.RegionRepository;
 import com.creatorflow.auth_service.repository.TimezoneRepository;
 import com.creatorflow.auth_service.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
@@ -26,6 +29,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final NicheRepository nicheRepository;
     private final TimezoneRepository timezoneRepository;
+    private final RegionRepository regionRepository;
 
     /**
      * In-memory niche list loaded once at startup.
@@ -41,11 +45,19 @@ public class UserService {
      */
     private TimezonesResponse cachedTimezones;
 
+    /**
+     * In-memory region list loaded once at startup.
+     * Same rationale as niches/timezones - static reference data, no Redis needed.
+     * Restart the service to pick up DB changes to the regions table.
+     */
+    private RegionsResponse cachedRegions;
+
     public UserService(UserRepository userRepository, NicheRepository nicheRepository,
-                       TimezoneRepository timezoneRepository) {
+                       TimezoneRepository timezoneRepository, RegionRepository regionRepository) {
         this.userRepository = userRepository;
         this.nicheRepository = nicheRepository;
         this.timezoneRepository = timezoneRepository;
+        this.regionRepository = regionRepository;
     }
 
     @PostConstruct
@@ -60,6 +72,11 @@ public class UserService {
                 .map(com.creatorflow.auth_service.model.Timezone::getName)
                 .toList();
         cachedTimezones = new TimezonesResponse(tzNames);
+        List<RegionsResponse.RegionOption> regionOptions = regionRepository.findByActiveTrueOrderByDisplayOrderAsc()
+                .stream()
+                .map(region -> new RegionsResponse.RegionOption(region.getCode(), region.getName()))
+                .toList();
+        cachedRegions = new RegionsResponse(regionOptions);
     }
 
     /**
@@ -109,11 +126,12 @@ public class UserService {
         User user = userRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> new UserNotFoundException(keycloakId));
         return new UserPreferencesResponse(
-                user.getEmail(), user.getTimezone(), user.getDisplayName(), user.getNiche());
+                user.getEmail(), user.getTimezone(), user.getDisplayName(), user.getNiche(),
+                user.getRegion());
     }
 
     /**
-     * Updates timezone, displayName, and niche for the given owner.
+     * Updates timezone, displayName, niche, and region for the given owner.
      * Email is intentionally excluded — it is managed by Keycloak.
      * ownerId is injected by the BFF — never from browser input.
      */
@@ -126,9 +144,26 @@ public class UserService {
         user.setTimezone(request.timezone());
         user.setDisplayName(request.displayName());
         user.setNiche(request.niche());
+        if (request.region() != null) {
+            validateRegion(request.region());
+            user.setRegion(request.region());
+        }
         userRepository.save(user);
         return new UserPreferencesResponse(
-                user.getEmail(), user.getTimezone(), user.getDisplayName(), user.getNiche());
+                user.getEmail(), user.getTimezone(), user.getDisplayName(), user.getNiche(),
+                user.getRegion());
+    }
+
+    /**
+     * Region must be in the active lookup set - the dropdown set equals the
+     * trending-refresh set, so an unknown region would mean empty gap cards.
+     */
+    private void validateRegion(String region) {
+        boolean known = cachedRegions.regions().stream()
+                .anyMatch(option -> option.code().equals(region));
+        if (!known) {
+            throw new InvalidRegionException(region);
+        }
     }
 
     /**
@@ -145,6 +180,14 @@ public class UserService {
      */
     public TimezonesResponse getTimezones() {
         return cachedTimezones;
+    }
+
+    /**
+     * Returns the cached region list loaded at startup from the DB.
+     * No Redis involved - avoids serialization issues for this static data.
+     */
+    public RegionsResponse getRegions() {
+        return cachedRegions;
     }
 
     private UserMeResponse toMeResponse(User user) {

@@ -46,6 +46,9 @@ public class User implements Serializable {
     @Column(name = "niche", length = 100)
     private String niche;
 
+    @Column(name = "region", nullable = false, length = 8)
+    private String region = "US";
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
