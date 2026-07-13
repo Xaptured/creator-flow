@@ -4,6 +4,7 @@ import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { AuthModule } from './common/auth/auth.module.js';
 import { EmbeddingsModule } from './embeddings/embeddings.module.js';
+import { TrendingModule } from './trending/trending.module.js';
 import { VisionModule } from './vision/vision.module.js';
 import { HealthController } from './health/health.controller.js';
 
@@ -17,6 +18,7 @@ import { HealthController } from './health/health.controller.js';
     AnalyticsModule,
     AiModule,
     EmbeddingsModule,
+    TrendingModule,
     VisionModule,
   ],
   controllers: [HealthController],

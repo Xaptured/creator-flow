@@ -101,7 +101,8 @@ export default function ComposerView() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   })()
 
-  const [title, setTitle] = useState('')
+  const topicParam = searchParams.get('topic')
+  const [title, setTitle] = useState(topicParam ?? '')
   const [description, setDescription] = useState('')
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime)

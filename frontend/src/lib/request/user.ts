@@ -15,4 +15,5 @@ export interface UserPreferencesRequest {
   timezone: string
   displayName?: string | null
   niche?: string | null
+  region?: string | null
 }

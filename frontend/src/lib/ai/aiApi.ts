@@ -7,10 +7,22 @@
 import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
 import { CaptionRequest, HashtagRequest } from '@/lib/request/ai'
-import { CaptionResponse, HashtagResponse, InsightsResponse } from '@/lib/response/ai'
+import { CaptionResponse, ContentGap, HashtagResponse, InsightsResponse, TrendingPlatform } from '@/lib/response/ai'
 
 function bearerHeaders(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}` }
+}
+
+export async function getContentGaps(
+  accessToken: string,
+  platform?: TrendingPlatform,
+): Promise<ContentGap[]> {
+  const url = buildUrl('ai', '/api/ai/content-gaps')
+  const { data } = await axiosClient.get<ContentGap[]>(url, {
+    headers: bearerHeaders(accessToken),
+    ...(platform ? { params: { platform } } : {}),
+  })
+  return data
 }
 
 export async function getAiInsights(accessToken: string): Promise<InsightsResponse> {

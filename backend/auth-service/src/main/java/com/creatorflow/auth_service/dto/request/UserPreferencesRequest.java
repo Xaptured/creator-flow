@@ -13,6 +13,8 @@ import java.util.UUID;
  * - timezone: required IANA timezone string (e.g. "Asia/Kolkata")
  * - displayName: optional profile display name (not email — email is Keycloak-managed)
  * - niche: optional content category (e.g. "Gaming", "Travel")
+ * - region: optional trending region code (ISO 3166-1 alpha-2, e.g. "US") - the
+ *   geographic market for trending topics, a separate signal from timezone
  */
 public record UserPreferencesRequest(
 
@@ -27,5 +29,8 @@ public record UserPreferencesRequest(
         String displayName,
 
         @Size(max = 100, message = "Niche must be at most 100 characters")
-        String niche
+        String niche,
+
+        @Size(max = 8, message = "Region must be at most 8 characters")
+        String region
 ) {}

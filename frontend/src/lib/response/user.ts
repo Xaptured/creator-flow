@@ -17,6 +17,7 @@ export interface UserPreferencesResponse {
   timezone: string
   displayName: string | null
   niche: string | null
+  region: string
 }
 
 export interface NichesResponse {
@@ -25,4 +26,13 @@ export interface NichesResponse {
 
 export interface TimezonesResponse {
   timezones: string[]
+}
+
+export interface RegionOption {
+  code: string
+  name: string
+}
+
+export interface RegionsResponse {
+  regions: RegionOption[]
 }

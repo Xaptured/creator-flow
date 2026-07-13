@@ -3,6 +3,7 @@ package com.creatorflow.auth_service.controllers;
 import com.creatorflow.auth_service.dto.request.ProvisionUserRequest;
 import com.creatorflow.auth_service.dto.request.UserPreferencesRequest;
 import com.creatorflow.auth_service.dto.response.NichesResponse;
+import com.creatorflow.auth_service.dto.response.RegionsResponse;
 import com.creatorflow.auth_service.dto.response.TimezonesResponse;
 import com.creatorflow.auth_service.dto.response.UserPreferencesResponse;
 import com.creatorflow.auth_service.dto.response.UserMeResponse;
@@ -156,5 +157,28 @@ public class UserPreferencesController {
             @RequestParam UUID ownerId
     ) {
         return ResponseEntity.ok(userService.getTimezones());
+    }
+
+    @Operation(
+            summary = "List available trending regions",
+            description = "Returns the ordered list of valid trending region codes and display names. " +
+                          "Region is the geographic market for trending topics (content gap detection) - " +
+                          "a separate signal from timezone. Use this to populate the region dropdown in the Settings UI."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Region list returned",
+                    content = @Content(schema = @Schema(implementation = RegionsResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Missing CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/regions")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<RegionsResponse> getRegions(
+            @Parameter(description = "Keycloak UUID of the authenticated user (injected by BFF)", required = true)
+            @RequestParam UUID ownerId
+    ) {
+        return ResponseEntity.ok(userService.getRegions());
     }
 }

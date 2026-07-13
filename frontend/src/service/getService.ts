@@ -1,10 +1,10 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
-import { InsightsResponse } from '@/lib/response/ai';
+import { ContentGap, InsightsResponse, TrendingPlatform } from '@/lib/response/ai';
 import { MediaFile } from '@/lib/response/media';
 import { ContentCountResponse, ContentStatusResponse, ScheduledContentDetail, ScheduledPost } from '@/lib/response/scheduler';
 import { PlatformSummary, TopPost, ContentSnapshot } from '@/lib/response/analytics';
 import { DisconnectCheckResponse, PlatformStatusResponse } from '@/lib/response/platform';
-import { NichesResponse, TimezonesResponse, UserPreferencesResponse } from '@/lib/response/user';
+import { NichesResponse, RegionsResponse, TimezonesResponse, UserPreferencesResponse } from '@/lib/response/user';
 
 export async function getMediaFile(mediaId: string): Promise<MediaFile> {
   const { data } = await browserAxiosClient.get<MediaFile>(`/api/media/${mediaId}`);
@@ -68,6 +68,19 @@ export async function getTimezones(): Promise<TimezonesResponse> {
 
 export async function getAiInsights(): Promise<InsightsResponse> {
   const { data } = await browserAxiosClient.get<InsightsResponse>('/api/ai/insights');
+  return data;
+}
+
+export async function getRegions(): Promise<RegionsResponse> {
+  const { data } = await browserAxiosClient.get<RegionsResponse>('/api/user/regions');
+  return data;
+}
+
+export async function fetchContentGaps(platform?: TrendingPlatform): Promise<ContentGap[]> {
+  const url = platform
+    ? `/api/ai/content-gaps?platform=${encodeURIComponent(platform)}`
+    : '/api/ai/content-gaps';
+  const { data } = await browserAxiosClient.get<ContentGap[]>(url);
   return data;
 }
 
