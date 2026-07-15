@@ -43,3 +43,29 @@ export const IS_ACTIVE_REGION = `
   FROM   regions
   WHERE  code = $1 AND is_active
 `;
+
+/**
+ * Retention prune — delete topics not seen trending for $1 days.
+ * Safe because the gap query's freshness window (TRENDING_FRESHNESS_HOURS, 48h)
+ * already hides anything this old; this only reclaims dead storage.
+ * Never runs as delete-before-insert — it executes AFTER a refresh completes,
+ * so a failed refresh still leaves last-good rows untouched.
+ */
+export const DELETE_STALE_TOPICS = `
+  DELETE FROM trending_topics
+  WHERE fetched_at < NOW() - make_interval(days => $1)
+`;
+
+/** App-level platform credential (e.g. rotated Meta IG token). Value is a SECRET. */
+export const GET_CREDENTIAL = `
+  SELECT value
+  FROM   platform_credentials
+  WHERE  credential_key = $1
+`;
+
+export const UPSERT_CREDENTIAL = `
+  INSERT INTO platform_credentials (credential_key, value)
+  VALUES ($1, $2)
+  ON CONFLICT (credential_key)
+  DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+`;

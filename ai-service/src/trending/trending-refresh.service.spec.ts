@@ -7,7 +7,10 @@ import { TrendingRepository } from './trending.repository.js';
 import { TrendingService } from './trending.service.js';
 
 const mockTrendingService = { refresh: jest.fn() };
-const mockRepository = { getRegionsInUse: jest.fn() };
+const mockRepository = {
+  getRegionsInUse: jest.fn(),
+  deleteStaleTopics: jest.fn().mockResolvedValue(0),
+};
 const mockSchedulerRegistry = { addCronJob: jest.fn() };
 
 /** Flags on by default for YT+IG, off for X — mirrors the intended prod default. */
@@ -59,7 +62,10 @@ describe('TrendingRefreshService', () => {
     expect(failures).toHaveLength(0);
     expect(mockTrendingService.refresh).toHaveBeenCalledWith('YOUTUBE', 'GB');
     expect(mockTrendingService.refresh).toHaveBeenCalledWith('YOUTUBE', 'US');
-    expect(mockTrendingService.refresh).toHaveBeenCalledWith('INSTAGRAM', 'GLOBAL');
+    expect(mockTrendingService.refresh).toHaveBeenCalledWith(
+      'INSTAGRAM',
+      'GLOBAL',
+    );
     expect(mockTrendingService.refresh).not.toHaveBeenCalledWith(
       'TWITTER',
       expect.anything(),
@@ -87,6 +93,44 @@ describe('TrendingRefreshService', () => {
       { platform: 'YOUTUBE', region: 'US', error: 'quota exceeded' },
     ]);
     expect(results).toHaveLength(1); // Instagram still ran
+  });
+
+  it('prunes stale topics AFTER the refresh and reports the count', async () => {
+    // Arrange
+    mockRepository.getRegionsInUse.mockResolvedValue(['US']);
+    mockTrendingService.refresh.mockResolvedValue({
+      platform: 'YOUTUBE',
+      region: 'US',
+      fetched: 1,
+      written: 1,
+    });
+    mockRepository.deleteStaleTopics.mockResolvedValue(7);
+
+    // Act
+    const { pruned } = await service.refreshAll();
+
+    // Assert
+    expect(mockRepository.deleteStaleTopics).toHaveBeenCalledWith(30);
+    expect(pruned).toBe(7);
+  });
+
+  it('a failing prune never fails the refresh', async () => {
+    // Arrange
+    mockRepository.getRegionsInUse.mockResolvedValue(['US']);
+    mockTrendingService.refresh.mockResolvedValue({
+      platform: 'YOUTUBE',
+      region: 'US',
+      fetched: 1,
+      written: 1,
+    });
+    mockRepository.deleteStaleTopics.mockRejectedValue(new Error('db down'));
+
+    // Act
+    const { results, pruned } = await service.refreshAll();
+
+    // Assert
+    expect(results).toHaveLength(2); // YT + IG still succeeded
+    expect(pruned).toBe(0);
   });
 
   it('skips cron registration when DISABLE_TRENDING_CRON=true', () => {

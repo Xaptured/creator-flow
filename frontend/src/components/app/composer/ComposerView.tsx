@@ -101,10 +101,15 @@ export default function ComposerView() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   })()
 
+  // Content gap cards deep-link here with a trending topic + platform to pre-fill.
   const topicParam = searchParams.get('topic')
+  const platformParam = searchParams.get('platform')
+  const initialPlatform = Object.values(PlatformType).includes(platformParam as PlatformType)
+    ? (platformParam as PlatformType)
+    : null
   const [title, setTitle] = useState(topicParam ?? '')
   const [description, setDescription] = useState('')
-  const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
+  const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(initialPlatform)
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime)
   const [mediaFileId, setMediaFileId] = useState<string | null>(null)
   const [mediaFileName, setMediaFileName] = useState<string | null>(null)

@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common';
 
 import { InternalApiKeyGuard } from '../common/guards/internal-api-key.guard.js';
+import {
+  MetaTokenService,
+  TokenRefreshResult,
+} from './credentials/meta-token.service.js';
 import { isTrendingPlatform } from './model/raw-trend.model.js';
 import {
   RefreshAllResult,
@@ -27,6 +31,7 @@ export class TrendingController {
   constructor(
     private readonly trendingService: TrendingService,
     private readonly refreshService: TrendingRefreshService,
+    private readonly metaTokenService: MetaTokenService,
   ) {}
 
   /**
@@ -53,5 +58,16 @@ export class TrendingController {
       return this.trendingService.refresh(platform, region);
     }
     return this.refreshService.refreshAll();
+  }
+
+  /**
+   * Re-exchange the app-level Meta IG token for a fresh ~60-day one.
+   * Ops/EventBridge trigger for Lambda deployments (containers use the weekly
+   * in-process cron). Response carries no token material.
+   */
+  @Post('credentials/refresh-ig')
+  @HttpCode(HttpStatus.OK)
+  refreshIgToken(): Promise<TokenRefreshResult> {
+    return this.metaTokenService.refreshIgToken();
   }
 }

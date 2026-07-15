@@ -11,6 +11,8 @@ import { TrendingRepository } from './trending.repository.js';
 export interface RefreshAllResult {
   results: RefreshResult[];
   failures: { platform: TrendingPlatform; region: string; error: string }[];
+  /** Rows removed by the post-refresh retention prune (0 if prune failed/skipped). */
+  pruned: number;
 }
 
 const YT_IG_CRON_JOB = 'trending-refresh-yt-ig';
@@ -60,9 +62,7 @@ export class TrendingRefreshService implements OnModuleInit {
    * use (DISTINCT users.region ∪ TRENDING_DEFAULT_REGION). A failing
    * (platform, region) is logged and skipped — never aborts the others.
    */
-  async refreshAll(
-    platforms?: TrendingPlatform[],
-  ): Promise<RefreshAllResult> {
+  async refreshAll(platforms?: TrendingPlatform[]): Promise<RefreshAllResult> {
     const enabled = (platforms ?? ['YOUTUBE', 'INSTAGRAM', 'TWITTER']).filter(
       (platform) => this.isEnabled(platform),
     );
@@ -72,6 +72,7 @@ export class TrendingRefreshService implements OnModuleInit {
     const failures: RefreshAllResult['failures'] = [];
 
     for (const platform of enabled) {
+      // (per-platform loop below; prune runs once after ALL platforms finish)
       // Instagram is region-independent — runs ONCE, rows tagged GLOBAL.
       const platformRegions =
         platform === 'INSTAGRAM' ? [GLOBAL_REGION] : regions;
@@ -85,7 +86,40 @@ export class TrendingRefreshService implements OnModuleInit {
         }
       }
     }
-    return { results, failures };
+
+    const pruned = await this.pruneStaleTopics();
+    return { results, failures, pruned };
+  }
+
+  /**
+   * Retention prune AFTER the refresh (never before — a failed refresh must
+   * leave last-good rows in place). Rows older than TRENDING_RETENTION_DAYS
+   * are invisible to the gap query anyway (48h freshness window); this only
+   * reclaims dead storage. A prune failure never fails the refresh.
+   */
+  private async pruneStaleTopics(): Promise<number> {
+    const retentionDays = Number(
+      this.config.get('TRENDING_RETENTION_DAYS', 30),
+    );
+    if (!Number.isFinite(retentionDays) || retentionDays < 3) {
+      // Never let a misconfigured value prune rows the freshness window still shows.
+      this.logger.warn(
+        `TRENDING_RETENTION_DAYS=${retentionDays} invalid/too low — skipping prune`,
+      );
+      return 0;
+    }
+    try {
+      const pruned = await this.repository.deleteStaleTopics(retentionDays);
+      if (pruned > 0) {
+        this.logger.log(
+          `Pruned ${pruned} stale trending topics (>${retentionDays}d)`,
+        );
+      }
+      return pruned;
+    } catch (err) {
+      this.logger.error(`Retention prune failed: ${(err as Error).message}`);
+      return 0;
+    }
   }
 
   private async resolveRegions(): Promise<string[]> {

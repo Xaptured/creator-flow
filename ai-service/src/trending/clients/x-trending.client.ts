@@ -24,7 +24,9 @@ export class XTrendingClient implements TrendingClient {
 
   async fetch(region: string): Promise<RawTrend[]> {
     if (this.config.get<string>('TRENDING_X_ENABLED') !== 'true') {
-      this.logger.log('X trending disabled (TRENDING_X_ENABLED!=true) — skipping');
+      this.logger.log(
+        'X trending disabled (TRENDING_X_ENABLED!=true) — skipping',
+      );
       return [];
     }
 
