@@ -6,6 +6,7 @@ import { ClaudeService } from '../ai/claude/claude.service.js';
 import { AuthModule } from '../common/auth/auth.module.js';
 import { EmbeddingsModule } from '../embeddings/embeddings.module.js';
 import { InstagramTrendingClient } from './clients/instagram-trending.client.js';
+import { MetaTokenService } from './credentials/meta-token.service.js';
 import { XTrendingClient } from './clients/x-trending.client.js';
 import { YoutubeTrendingClient } from './clients/youtube-trending.client.js';
 import { GapController } from './gap/gap.controller.js';
@@ -34,6 +35,7 @@ import { TrendingService } from './trending.service.js';
     TrendingService,
     TrendingRefreshService,
     TopicNormalizerService,
+    MetaTokenService,
     YoutubeTrendingClient,
     XTrendingClient,
     InstagramTrendingClient,

@@ -17,9 +17,12 @@ import {
   HAS_ANY_EMBEDDING,
 } from './sql/gap.sql.js';
 import {
+  DELETE_STALE_TOPICS,
+  GET_CREDENTIAL,
   GET_REGIONS_IN_USE,
   GET_USER_NICHE_REGION,
   IS_ACTIVE_REGION,
+  UPSERT_CREDENTIAL,
   UPSERT_TRENDING_TOPIC,
 } from './sql/trending.sql.js';
 
@@ -141,6 +144,24 @@ export class TrendingRepository implements OnModuleInit, OnModuleDestroy {
   async isActiveRegion(region: string): Promise<boolean> {
     const { rows } = await this.pool.query(IS_ACTIVE_REGION, [region]);
     return rows.length > 0;
+  }
+
+  /** Delete topics not refreshed within the retention window. Returns rows removed. */
+  async deleteStaleTopics(retentionDays: number): Promise<number> {
+    const result = await this.pool.query(DELETE_STALE_TOPICS, [retentionDays]);
+    return result.rowCount ?? 0;
+  }
+
+  /** App-level platform credential (secret — never log the value). */
+  async getCredential(key: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ value: string }>(GET_CREDENTIAL, [
+      key,
+    ]);
+    return rows.length > 0 ? rows[0].value : null;
+  }
+
+  async setCredential(key: string, value: string): Promise<void> {
+    await this.pool.query(UPSERT_CREDENTIAL, [key, value]);
   }
 
   /** Distinct regions chosen by users (default region unioned in by the caller). */

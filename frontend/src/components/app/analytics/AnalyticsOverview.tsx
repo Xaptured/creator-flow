@@ -5,7 +5,9 @@ import { Box, Typography, Tab, Tabs, Grid, Skeleton } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import useSWR from 'swr'
 import PostAnalyticsDetail from './PostAnalyticsDetail'
+import ContentGapCards from '@/components/app/ai/ContentGapCards'
 import { getAnalyticsSummary, getTopPosts } from '@/service/getService'
+import { TrendingPlatform } from '@/lib/response/ai'
 import { PlatformSummary, TopPost } from '@/lib/response/analytics'
 import { PlatformType } from '@/lib/response/scheduler'
 
@@ -177,6 +179,10 @@ export default function AnalyticsOverview() {
           </Grid>
         ))}
       </Grid>
+
+      {/* Content gaps are not sourced for Twitter/X (Pro-tier cost) — hide the card on that tab. */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} lg={platformType === PlatformType.TWITTER ? 12 : 8}>
 
       <Box sx={{ ...cardSx, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -354,6 +360,17 @@ export default function AnalyticsOverview() {
           ))}
         </Box>
       </Box>
+
+        </Grid>
+
+        {platformType !== PlatformType.TWITTER && (
+          <Grid item xs={12} lg={4}>
+            <ContentGapCards
+              platform={(platformType ?? undefined) as TrendingPlatform | undefined}
+            />
+          </Grid>
+        )}
+      </Grid>
 
       <PostAnalyticsDetail
         postId={selectedPostId}

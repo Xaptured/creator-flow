@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Box, Typography, Grid, Alert, AlertTitle, IconButton, Link, Skeleton } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import useSWR from 'swr'
 import { getAnalyticsSummary, getPlatformStatus, getScheduledCount, getUserPreferences } from '@/service/getService'
@@ -28,10 +27,6 @@ function formatCount(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
 }
-
-const contentGaps = [
-  "You haven't posted in 30+ days — connect a platform to track gaps.",
-]
 
 const alertSx = {
   borderRadius: '10px',
@@ -327,38 +322,7 @@ export default function DashboardHome() {
         </Grid>
 
         <Grid item xs={12} sm={6} lg={3}>
-          <Box sx={{ ...cardSx, height: '100%' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#ff9f0a' }} />
-              <Typography
-                sx={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: 'var(--th-text-primary)',
-                  letterSpacing: '-0.374px',
-                }}
-              >
-                Content Gaps
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {contentGaps.map((gap, i) => (
-                <Typography
-                  key={i}
-                  sx={{
-                    fontFamily: 'var(--cf-font-text)',
-                    fontSize: 13,
-                    color: 'var(--th-text-secondary)',
-                    letterSpacing: '-0.12px',
-                    lineHeight: 1.47,
-                  }}
-                >
-                  {gap}
-                </Typography>
-              ))}
-            </Box>
-          </Box>
+          <ContentGapCards />
         </Grid>
       </Grid>
     </Box>

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { MetaTokenService } from '../credentials/meta-token.service.js';
 import { IG_NICHE_HASHTAGS } from '../config/ig-niche-hashtags.js';
 import { GLOBAL_REGION } from '../config/region-codes.js';
 import { RawTrend } from '../model/raw-trend.model.js';
@@ -33,14 +34,18 @@ export class InstagramTrendingClient implements TrendingClient {
   /** hashtag name → Graph hashtag node id (stable — cache for process lifetime). */
   private readonly hashtagIdCache = new Map<string, string>();
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly metaTokenService: MetaTokenService,
+  ) {}
 
   async fetch(_region: string): Promise<RawTrend[]> {
     if (this.config.get<string>('TRENDING_INSTAGRAM_ENABLED') !== 'true') {
       this.logger.log('Instagram trending disabled — skipping');
       return [];
     }
-    const accessToken = this.config.getOrThrow<string>('IG_APP_ACCESS_TOKEN');
+    // Rotated token from platform_credentials; falls back to env for first seed.
+    const accessToken = await this.metaTokenService.getIgAccessToken();
     const igUserId = this.config.getOrThrow<string>('IG_BUSINESS_USER_ID');
 
     const trends: RawTrend[] = [];
