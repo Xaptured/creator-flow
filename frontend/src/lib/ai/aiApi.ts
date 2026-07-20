@@ -7,10 +7,22 @@
 import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
 import { CaptionRequest, HashtagRequest } from '@/lib/request/ai'
-import { CaptionResponse, ContentGap, HashtagResponse, InsightsResponse, TrendingPlatform } from '@/lib/response/ai'
+import { BestTimeResponse, CaptionResponse, ContentGap, HashtagResponse, InsightsResponse, TrendingPlatform } from '@/lib/response/ai'
 
 function bearerHeaders(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}` }
+}
+
+export async function getBestTime(
+  accessToken: string,
+  platform?: TrendingPlatform,
+): Promise<BestTimeResponse> {
+  const url = buildUrl('ai', '/api/ai/best-time')
+  const { data } = await axiosClient.get<BestTimeResponse>(url, {
+    headers: bearerHeaders(accessToken),
+    ...(platform ? { params: { platform } } : {}),
+  })
+  return data
 }
 
 export async function getContentGaps(

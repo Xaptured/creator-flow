@@ -43,6 +43,7 @@ describe('TrendingRefreshService', () => {
     }).compile();
     service = module.get(TrendingRefreshService);
     jest.clearAllMocks();
+    mockRepository.deleteStaleTopics.mockResolvedValue(0);
   });
 
   it('refreshes enabled platforms across regions in use plus the default', async () => {

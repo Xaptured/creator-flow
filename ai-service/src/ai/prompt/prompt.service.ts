@@ -2,6 +2,13 @@ import { Injectable } from '@nestjs/common';
 
 import { AnalyticsSnapshot } from '../../analytics/model/snapshot.model.js';
 
+/** Structural slot shape for best-time prompts (avoids a dto import cycle). */
+export interface BestTimePromptSlot {
+  label: string;
+  avgEngagement: number;
+  sampleSize: number;
+}
+
 export interface BuiltPrompt {
   system: string;
   user: string;
@@ -14,6 +21,28 @@ export interface BuiltPrompt {
  */
 @Injectable()
 export class PromptService {
+  bestTimeSystem(): string {
+    return (
+      `You recommend optimal social posting times from engagement data.\n` +
+      `Reply with 1-2 plain sentences only - no lists, no markdown.\n` +
+      `Refer to days and times exactly as given in the data.`
+    );
+  }
+
+  buildBestTimePrompt(slots: BestTimePromptSlot[], timezone: string): string {
+    const table = slots
+      .map(
+        (slot) =>
+          `  ${slot.label} - avg engagement ${(slot.avgEngagement * 100).toFixed(1)}% over ${slot.sampleSize} posts`,
+      )
+      .join('\n');
+    return (
+      `Creator timezone: ${timezone}\n` +
+      `Top posting slots by average engagement:\n${table}\n\n` +
+      `When should this creator post? Answer in 1-2 sentences.`
+    );
+  }
+
   insightsSystem(): string {
     return (
       `You are a social media analytics expert.\n` +

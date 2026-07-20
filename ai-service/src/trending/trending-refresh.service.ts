@@ -62,7 +62,9 @@ export class TrendingRefreshService implements OnModuleInit {
    * use (DISTINCT users.region ∪ TRENDING_DEFAULT_REGION). A failing
    * (platform, region) is logged and skipped — never aborts the others.
    */
-  async refreshAll(platforms?: TrendingPlatform[]): Promise<RefreshAllResult> {
+  async refreshAll(
+    platforms?: TrendingPlatform[],
+  ): Promise<RefreshAllResult> {
     const enabled = (platforms ?? ['YOUTUBE', 'INSTAGRAM', 'TWITTER']).filter(
       (platform) => this.isEnabled(platform),
     );
@@ -72,7 +74,6 @@ export class TrendingRefreshService implements OnModuleInit {
     const failures: RefreshAllResult['failures'] = [];
 
     for (const platform of enabled) {
-      // (per-platform loop below; prune runs once after ALL platforms finish)
       // Instagram is region-independent — runs ONCE, rows tagged GLOBAL.
       const platformRegions =
         platform === 'INSTAGRAM' ? [GLOBAL_REGION] : regions;

@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { Box, Typography, Tab, Tabs, Grid, Skeleton } from '@mui/material'
-import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import useSWR from 'swr'
 import PostAnalyticsDetail from './PostAnalyticsDetail'
+import BestTimeChart from '@/components/app/ai/BestTimeChart'
 import ContentGapCards from '@/components/app/ai/ContentGapCards'
 import { getAnalyticsSummary, getTopPosts } from '@/service/getService'
 import { TrendingPlatform } from '@/lib/response/ai'
@@ -184,79 +184,10 @@ export default function AnalyticsOverview() {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={platformType === PlatformType.TWITTER ? 12 : 8}>
 
-      <Box sx={{ ...cardSx, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-          <TrendingUpOutlinedIcon sx={{ fontSize: 18, color: 'var(--cf-blue)' }} />
-          <Typography
-            sx={{
-              fontFamily: 'var(--cf-font-display)',
-              fontSize: 17,
-              fontWeight: 600,
-              color: 'var(--th-text-primary)',
-              letterSpacing: '-0.374px',
-            }}
-          >
-            Engagement Rate Trend
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            height: 180,
-            borderRadius: '8px',
-            backgroundColor: 'var(--th-bg-surface)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Typography
-            sx={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: 14,
-              color: 'var(--th-text-tertiary)',
-              letterSpacing: '-0.224px',
-            }}
-          >
-            Chart renders once platforms are connected.
-          </Typography>
-        </Box>
-      </Box>
-
-      <Box sx={{ ...cardSx, mb: 3 }}>
-        <Typography
-          sx={{
-            fontFamily: 'var(--cf-font-display)',
-            fontSize: 17,
-            fontWeight: 600,
-            color: 'var(--th-text-primary)',
-            letterSpacing: '-0.374px',
-            mb: 3,
-          }}
-        >
-          Best Day &amp; Time to Post
-        </Typography>
-        <Box
-          sx={{
-            height: 120,
-            borderRadius: '8px',
-            backgroundColor: 'var(--th-bg-surface)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Typography
-            sx={{
-              fontFamily: 'var(--cf-font-text)',
-              fontSize: 14,
-              color: 'var(--th-text-tertiary)',
-              letterSpacing: '-0.224px',
-            }}
-          >
-            Heatmap loads once you have published posts.
-          </Typography>
-        </Box>
-      </Box>
+      {/* Best-time chart is per-platform only — hidden on the All tab. */}
+      {platformType !== null && (
+        <BestTimeChart platform={platformType as unknown as TrendingPlatform} />
+      )}
 
       <Box sx={cardSx}>
         <Typography

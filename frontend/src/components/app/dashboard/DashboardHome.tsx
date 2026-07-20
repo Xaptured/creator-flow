@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Box, Typography, Grid, Alert, AlertTitle, IconButton, Link, Skeleton } from '@mui/material'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
-import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import useSWR from 'swr'
 import { getAnalyticsSummary, getPlatformStatus, getScheduledCount, getUserPreferences } from '@/service/getService'
@@ -280,48 +279,7 @@ export default function DashboardHome() {
           </Box>
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
-          <Box sx={{ ...cardSx, height: '100%' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <ScheduleOutlinedIcon sx={{ fontSize: 18, color: 'var(--cf-blue)' }} />
-              <Typography
-                sx={{
-                  fontFamily: 'var(--cf-font-display)',
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: 'var(--th-text-primary)',
-                  letterSpacing: '-0.374px',
-                }}
-              >
-                Best Time to Post
-              </Typography>
-            </Box>
-            <Typography
-              sx={{
-                fontFamily: 'var(--cf-font-display)',
-                fontSize: 24,
-                fontWeight: 600,
-                color: 'var(--th-text-primary)',
-                letterSpacing: '-0.28px',
-                mb: 0.5,
-              }}
-            >
-              —
-            </Typography>
-            <Typography
-              sx={{
-                fontFamily: 'var(--cf-font-text)',
-                fontSize: 13,
-                color: 'var(--th-text-tertiary)',
-                letterSpacing: '-0.12px',
-              }}
-            >
-              Connect platforms to see recommendations.
-            </Typography>
-          </Box>
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} lg={6}>
           <ContentGapCards />
         </Grid>
       </Grid>
