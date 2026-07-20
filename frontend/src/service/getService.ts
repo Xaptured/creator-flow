@@ -1,5 +1,5 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
-import { ContentGap, InsightsResponse, TrendingPlatform } from '@/lib/response/ai';
+import { BestTimeResponse, ContentGap, InsightsResponse, TrendingPlatform } from '@/lib/response/ai';
 import { MediaFile } from '@/lib/response/media';
 import { ContentCountResponse, ContentStatusResponse, ScheduledContentDetail, ScheduledPost } from '@/lib/response/scheduler';
 import { PlatformSummary, TopPost, ContentSnapshot } from '@/lib/response/analytics';
@@ -73,6 +73,14 @@ export async function getAiInsights(): Promise<InsightsResponse> {
 
 export async function getRegions(): Promise<RegionsResponse> {
   const { data } = await browserAxiosClient.get<RegionsResponse>('/api/user/regions');
+  return data;
+}
+
+export async function fetchBestTime(platform?: TrendingPlatform): Promise<BestTimeResponse> {
+  const url = platform
+    ? `/api/ai/best-time?platform=${encodeURIComponent(platform)}`
+    : '/api/ai/best-time';
+  const { data } = await browserAxiosClient.get<BestTimeResponse>(url);
   return data;
 }
 

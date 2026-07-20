@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -15,7 +17,10 @@ import { JwtAuthGuard } from '../common/auth/jwt-auth.guard.js';
 import { JwtPayload } from '../common/auth/jwt.strategy.js';
 import { Roles } from '../common/auth/roles.decorator.js';
 import { RolesGuard } from '../common/auth/roles.guard.js';
+import { isTrendingPlatform } from '../trending/model/raw-trend.model.js';
 import { AiService } from './ai.service.js';
+import { BestTimeService } from './best-time/best-time.service.js';
+import { BestTimeResponse } from './best-time/dto/best-time.response.js';
 import type { CaptionRequest } from './dto/request/caption.request.js';
 import type { HashtagRequest } from './dto/request/hashtag.request.js';
 import { CaptionResponse } from './dto/response/caption.response.js';
@@ -26,7 +31,30 @@ import { InsightsResponse } from './dto/response/insight.response.js';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CREATOR')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(
+    private readonly aiService: AiService,
+    private readonly bestTimeService: BestTimeService,
+  ) {}
+
+  /**
+   * GET /api/ai/best-time[?platform=YOUTUBE|INSTAGRAM|TWITTER]
+   * Engagement-ranked posting slots in the creator's timezone + Claude
+   * narrative. ownerId from the JWT sub - never from the client.
+   */
+  @Get('best-time')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 86_400_000 } })
+  getBestTime(
+    @Request() req: ExpressRequest & { user: JwtPayload },
+    @Query('platform') platform?: string,
+  ): Promise<BestTimeResponse> {
+    if (platform !== undefined && !isTrendingPlatform(platform)) {
+      throw new BadRequestException(
+        `Unknown platform '${platform}' - expected YOUTUBE | INSTAGRAM | TWITTER`,
+      );
+    }
+    return this.bestTimeService.getBestTime(req.user.sub, platform ?? null);
+  }
 
   @Get('insights')
   @HttpCode(HttpStatus.OK)

@@ -38,3 +38,29 @@ export interface ContentGap {
   platform: TrendingPlatform
   score: number
 }
+
+/** A ranked posting slot. dow: 0=Sunday..6=Saturday, creator's timezone. */
+export interface BestTimeSlot {
+  dow: number
+  hourBlock: number
+  label: string
+  avgEngagement: number
+  sampleSize: number
+}
+
+/** Heatmap cell (includes low-sample buckets excluded from ranking). */
+export interface BestTimeBucket {
+  dow: number
+  hourBlock: number
+  avgEngagement: number
+  sampleSize: number
+  lowSample: boolean
+}
+
+export interface BestTimeResponse {
+  timezone: string
+  recommendation: string
+  bestSlots: BestTimeSlot[]
+  buckets: BestTimeBucket[]
+  platform?: TrendingPlatform
+}
