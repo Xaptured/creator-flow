@@ -1,6 +1,6 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { CaptionRequest, HashtagRequest } from '@/lib/request/ai';
-import { CaptionResponse, HashtagResponse } from '@/lib/response/ai';
+import { CaptionResponse, CommentDigestResponse, HashtagResponse } from '@/lib/response/ai';
 import { ConfirmUploadRequest, UploadUrlRequest } from '@/lib/request/media';
 import { MediaFile, UploadUrlResponse } from '@/lib/response/media';
 import { ScheduleContentRequest } from '@/lib/request/scheduler';
@@ -43,5 +43,11 @@ export async function generateHashtags(
   body: Omit<HashtagRequest, 'ownerId'>
 ): Promise<HashtagResponse> {
   const { data } = await browserAxiosClient.post<HashtagResponse>('/api/ai/hashtags', body);
+  return data;
+}
+
+/** Channel-wide YouTube comment digest — no request body; identity comes from the session. */
+export async function generateCommentDigest(): Promise<CommentDigestResponse> {
+  const { data } = await browserAxiosClient.post<CommentDigestResponse>('/api/ai/comment-digest', {});
   return data;
 }

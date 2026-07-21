@@ -8,6 +8,8 @@ import { AiController } from './ai.controller.js';
 import { AiService } from './ai.service.js';
 import { BestTimeService } from './best-time/best-time.service.js';
 import { ClaudeService } from './claude/claude.service.js';
+import { AnalyticsCommentsClient } from './comment-digest/analytics-comments.client.js';
+import { CommentDigestService } from './comment-digest/comment-digest.service.js';
 import { PromptService } from './prompt/prompt.service.js';
 import { SqsConsumerService } from './sqs/sqs-consumer.service.js';
 
@@ -26,8 +28,10 @@ import { SqsConsumerService } from './sqs/sqs-consumer.service.js';
   controllers: [AiController],
   providers: [
     AiService,
+    AnalyticsCommentsClient,
     BestTimeService,
     ClaudeService,
+    CommentDigestService,
     PromptService,
     SqsConsumerService,
   ],

@@ -11,6 +11,7 @@ import { PlatformSummary } from '@/lib/response/analytics'
 import { ContentCountResponse } from '@/lib/response/scheduler'
 import { UserPreferencesResponse } from '@/lib/response/user'
 import AiInsightsCard from '@/components/app/ai/AiInsightsCard'
+import CommentDigestCard from '@/components/app/ai/CommentDigestCard'
 import ContentGapCards from '@/components/app/ai/ContentGapCards'
 
 const cardSx = {
@@ -280,7 +281,10 @@ export default function DashboardHome() {
         </Grid>
 
         <Grid item xs={12} lg={6}>
-          <ContentGapCards />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <CommentDigestCard />
+            <ContentGapCards />
+          </Box>
         </Grid>
       </Grid>
     </Box>

@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Request,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -21,6 +22,8 @@ import { isTrendingPlatform } from '../trending/model/raw-trend.model.js';
 import { AiService } from './ai.service.js';
 import { BestTimeService } from './best-time/best-time.service.js';
 import { BestTimeResponse } from './best-time/dto/best-time.response.js';
+import { CommentDigestService } from './comment-digest/comment-digest.service.js';
+import { CommentDigestResponse } from './comment-digest/dto/comment-digest.response.js';
 import type { CaptionRequest } from './dto/request/caption.request.js';
 import type { HashtagRequest } from './dto/request/hashtag.request.js';
 import { CaptionResponse } from './dto/response/caption.response.js';
@@ -34,6 +37,7 @@ export class AiController {
   constructor(
     private readonly aiService: AiService,
     private readonly bestTimeService: BestTimeService,
+    private readonly commentDigestService: CommentDigestService,
   ) {}
 
   /**
@@ -84,4 +88,29 @@ export class AiController {
   ): Promise<HashtagResponse> {
     return this.aiService.generateHashtags({ ...body, ownerId: req.user.sub });
   }
+
+  /**
+   * POST /api/ai/comment-digest
+   * Top audience questions + content ideas from recent channel-wide YouTube
+   * comments. ownerId from the JWT sub. The caller's Bearer token is forwarded
+   * to analytics-service (which owns the YouTube OAuth token) — ai-service
+   * never touches platform tokens. Empty body.
+   */
+  @Post('comment-digest')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 86_400_000 } })
+  generateCommentDigest(
+    @Request() req: ExpressRequest & { user: JwtPayload },
+  ): Promise<CommentDigestResponse> {
+    const accessToken = extractBearerToken(req.headers.authorization);
+    return this.commentDigestService.generateDigest(req.user.sub, accessToken);
+  }
+}
+
+/** "Bearer <token>" → "<token>"; guard has already validated the JWT. */
+function extractBearerToken(header: string | undefined): string {
+  if (!header?.startsWith('Bearer ')) {
+    throw new UnauthorizedException('Missing Bearer token');
+  }
+  return header.slice('Bearer '.length);
 }

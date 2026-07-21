@@ -1,12 +1,14 @@
 package com.creatorflow.analytics_service.controllers;
 
 import com.creatorflow.analytics_service.dto.request.IngestRequest;
+import com.creatorflow.analytics_service.dto.response.ChannelCommentResponse;
 import com.creatorflow.analytics_service.dto.response.ContentSnapshotResponse;
 import com.creatorflow.analytics_service.dto.response.ErrorResponse;
 import com.creatorflow.analytics_service.dto.response.PlatformSummaryResponse;
 import com.creatorflow.analytics_service.dto.response.TopPostResponse;
 import com.creatorflow.analytics_service.model.PlatformType;
 import com.creatorflow.analytics_service.services.AnalyticsQueryService;
+import com.creatorflow.analytics_service.services.CommentQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -28,9 +30,12 @@ import java.util.UUID;
 public class AnalyticsController {
 
     private final AnalyticsQueryService queryService;
+    private final CommentQueryService commentQueryService;
 
-    public AnalyticsController(AnalyticsQueryService queryService) {
+    public AnalyticsController(AnalyticsQueryService queryService,
+                               CommentQueryService commentQueryService) {
         this.queryService = queryService;
+        this.commentQueryService = commentQueryService;
     }
 
     @Operation(
@@ -134,5 +139,30 @@ public class AnalyticsController {
             @RequestBody IngestRequest request) {
         queryService.ingest(request);
         return ResponseEntity.accepted().build();
+    }
+
+    @Operation(
+            summary = "Get recent channel comments",
+            description = "Returns up to 'limit' (default 50, max 100) recent top-level YouTube comments across the " +
+                    "creator's whole channel, newest first. Live fetch via YouTube Data API v3 using the OAuth token " +
+                    "held by this service — tokens never leave analytics-service. Returns an empty list when YouTube " +
+                    "is not connected or the API call fails (never errors on upstream failure)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Comments returned (empty list if YouTube unavailable)",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ChannelCommentResponse.class)))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid Bearer token",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Authenticated user does not have CREATOR role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/comments/{ownerId}")
+    @PreAuthorize("hasRole('CREATOR')")
+    public ResponseEntity<List<ChannelCommentResponse>> getRecentComments(
+            @Parameter(description = "UUID of the content owner", required = true)
+            @PathVariable UUID ownerId,
+            @Parameter(description = "Max comments to return (default 50, clamped to 1-100)")
+            @RequestParam(required = false) Integer limit) {
+        return ResponseEntity.ok(commentQueryService.getRecentComments(ownerId, limit));
     }
 }
