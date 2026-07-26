@@ -1,6 +1,8 @@
 package com.creatorflow.media_service.services;
 
 import com.creatorflow.media_service.configuration.AwsProperties;
+import com.creatorflow.media_service.dto.CreatorflowEventMessage;
+import com.creatorflow.media_service.dto.VideoUploadedPayload;
 import com.creatorflow.media_service.dto.request.ConfirmUploadRequest;
 import com.creatorflow.media_service.dto.request.UploadUrlRequest;
 import com.creatorflow.media_service.dto.response.MediaFileResponse;
@@ -12,6 +14,10 @@ import com.creatorflow.media_service.exception.S3FileNotFoundException;
 import com.creatorflow.media_service.model.MediaFile;
 import com.creatorflow.media_service.model.MediaStatus;
 import com.creatorflow.media_service.repository.MediaFileRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -19,6 +25,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -34,19 +41,30 @@ public class MediaFileService {
             "audio/mpeg", "audio/wav", "audio/ogg"
     );
 
+    private static final Logger log = LoggerFactory.getLogger(MediaFileService.class);
+
+    private static final String VIDEO_MIME_TYPE = "video/mp4";
+    private static final String MEDIA_EVENTS_TOPIC_KEY = "media-events";
+    private static final String EVENT_VIDEO_UPLOADED = "MEDIA_VIDEO_UPLOADED";
+
     private final MediaFileRepository mediaFileRepository;
     private final S3Service s3Service;
     private final S3Client s3Client;
     private final AwsProperties awsProperties;
+    private final SnsPublisher snsPublisher;
+    private final ObjectMapper eventObjectMapper;
 
     public MediaFileService(MediaFileRepository mediaFileRepository,
                             S3Service s3Service,
                             S3Client s3Client,
-                            AwsProperties awsProperties) {
+                            AwsProperties awsProperties,
+                            SnsPublisher snsPublisher) {
         this.mediaFileRepository = mediaFileRepository;
         this.s3Service = s3Service;
         this.s3Client = s3Client;
         this.awsProperties = awsProperties;
+        this.snsPublisher = snsPublisher;
+        this.eventObjectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
     @Transactional
@@ -135,7 +153,38 @@ public class MediaFileService {
         mediaFile.setStatus(MediaStatus.UPLOADED);
         mediaFileRepository.save(mediaFile);
 
+        publishVideoUploadedEvent(mediaFile);
+
         return toResponse(mediaFile, null);
+    }
+
+    /**
+     * Emits {@code MEDIA_VIDEO_UPLOADED} to the media-events topic for confirmed
+     * {@code video/mp4} uploads (CF-96 — thumbnail scoring is YouTube/video only;
+     * images and audio never trigger it). Best-effort: a publish failure is logged
+     * and never fails the confirm — the upload must succeed regardless of whether
+     * thumbnail scoring can start.
+     */
+    private void publishVideoUploadedEvent(MediaFile mediaFile) {
+        if (!VIDEO_MIME_TYPE.equals(mediaFile.getMimeType())) {
+            return;
+        }
+        try {
+            VideoUploadedPayload payload = new VideoUploadedPayload(
+                    mediaFile.getId(),
+                    mediaFile.getOwnerId(),
+                    mediaFile.getS3Key(),
+                    mediaFile.getOriginalName(),
+                    mediaFile.getMimeType(),
+                    Instant.now());
+            String payloadJson = eventObjectMapper.writeValueAsString(payload);
+            CreatorflowEventMessage event = CreatorflowEventMessage.of(EVENT_VIDEO_UPLOADED, payloadJson);
+            snsPublisher.publishToTopic(MEDIA_EVENTS_TOPIC_KEY, event);
+            log.info("MediaFileService: emitted {} for mediaId: {}", EVENT_VIDEO_UPLOADED, mediaFile.getId());
+        } catch (Exception e) {
+            log.error("MediaFileService: failed to emit {} for mediaId: {} — thumbnail scoring will not start: {}",
+                    EVENT_VIDEO_UPLOADED, mediaFile.getId(), e.getMessage());
+        }
     }
 
     @Transactional

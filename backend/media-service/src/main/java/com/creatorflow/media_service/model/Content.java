@@ -57,6 +57,10 @@ public class Content {
     @Column(name = "media_file_id")
     private UUID mediaFileId;
 
+    /** Selected thumbnail S3 key (CF-96) — set only on YouTube video posts. */
+    @Column(name = "thumbnail_s3_key", length = 1024)
+    private String thumbnailS3Key;
+
     @Column(name = "platform_post_id", length = 255)
     private String platformPostId;
 

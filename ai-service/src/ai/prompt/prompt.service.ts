@@ -70,6 +70,26 @@ export class PromptService {
     );
   }
 
+  thumbnailScoreSystem(): string {
+    return (
+      `You rate YouTube thumbnail candidates for click-through-rate potential.\n` +
+      `Return ONLY valid JSON — no prose, no markdown fences.\n` +
+      `Schema: { "frames": [ { "frameIndex": number, "score": number, "reasoning": string } ] }\n` +
+      `Score each image 1-10 (integer, higher = better CTR potential).\n` +
+      `Consider: text readability, face visibility, contrast, emotional impact.\n` +
+      `Return exactly one object per image, frameIndex matching the image order starting at 0.\n` +
+      `Keep each reasoning to 1-2 sentences.`
+    );
+  }
+
+  buildThumbnailScorePrompt(frameCount: number): string {
+    return (
+      `The ${frameCount} images above are candidate thumbnails extracted from one YouTube video ` +
+      `at 10%, 25%, 50%, and 75% of its duration (frameIndex 0-${frameCount - 1} in that order).\n` +
+      `Score each thumbnail 1-10 for YouTube CTR potential and explain briefly.`
+    );
+  }
+
   commentDigestSystem(): string {
     return (
       `You analyse YouTube audience comments for a content creator.\n` +

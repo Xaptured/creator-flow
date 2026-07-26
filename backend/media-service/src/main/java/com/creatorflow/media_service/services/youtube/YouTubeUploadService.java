@@ -101,6 +101,30 @@ public class YouTubeUploadService {
 
         log.info("YouTube upload complete: ownerId={} mediaFileId={} youtubeVideoId={}",
                 ownerId, content.getMediaFileId(), youtubeVideoId);
+
+        setThumbnailIfPresent(account.getAccessToken(), youtubeVideoId, content);
+
         return youtubeVideoId;
+    }
+
+    /**
+     * CF-96: apply the creator-selected thumbnail after a successful upload.
+     * Best-effort — the video is already live on YouTube, so a thumbnail failure
+     * (unverified channel, S3 read error, quota) must never fail the publish.
+     * YouTube falls back to its auto-generated thumbnail in that case.
+     */
+    private void setThumbnailIfPresent(String accessToken, String youtubeVideoId, Content content) {
+        String thumbnailS3Key = content.getThumbnailS3Key();
+        if (thumbnailS3Key == null || thumbnailS3Key.isBlank()) {
+            return;
+        }
+        try {
+            byte[] thumbnailBytes = s3Service.fetchObject(thumbnailS3Key);
+            youTubeClient.setThumbnail(accessToken, youtubeVideoId, thumbnailBytes);
+            log.info("YouTube thumbnail applied: contentId={} videoId={}", content.getId(), youtubeVideoId);
+        } catch (Exception e) {
+            log.warn("YouTube thumbnail set failed (video published, YouTube auto-thumbnail used) — "
+                    + "contentId={} videoId={}: {}", content.getId(), youtubeVideoId, e.getMessage());
+        }
     }
 }

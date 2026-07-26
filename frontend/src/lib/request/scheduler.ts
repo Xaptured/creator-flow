@@ -14,10 +14,9 @@ export interface ScheduleContentRequest {
   description?: string
   mediaFileId?: string
   platformTargets: PlatformType[]
-  /** ISO-8601 string. Omit for instant publish (backend defaults to now). */
   scheduledAt?: string
-  /** ISO-8601 string. YouTube only — when the video goes public (analytics anchor). */
   liveAt?: string
+  thumbnailS3Key?: string
 }
 
 export interface RescheduleContentRequest {
@@ -32,8 +31,7 @@ export interface UpdateContentRequest {
   description?: string
   mediaFileId?: string
   platformTargets: PlatformType[]
-  /** ISO-8601 string — new scheduled time. */
   scheduledAt?: string
-  /** ISO-8601 string. YouTube only — when the video goes public (analytics anchor). */
   liveAt?: string
+  thumbnailS3Key?: string
 }

@@ -32,6 +32,7 @@ import { deleteScheduledContent } from '@/service/deleteService'
 import { toApiError } from '@/service/errorService'
 import { toLocalDatetimeLocal, toUtcIso } from '@/lib/timezone/timezoneUtils'
 import VaultPickerDialog from './VaultPickerDialog'
+import ThumbnailSelector from './ThumbnailSelector'
 import AiCaptionsPanel from '@/components/app/ai/AiCaptionsPanel'
 import AiHashtagsPanel from '@/components/app/ai/AiHashtagsPanel'
 
@@ -113,6 +114,7 @@ export default function ComposerView() {
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime)
   const [mediaFileId, setMediaFileId] = useState<string | null>(null)
   const [mediaFileName, setMediaFileName] = useState<string | null>(null)
+  const [thumbnailS3Key, setThumbnailS3Key] = useState<string | null>(null)
   const [vaultOpen, setVaultOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [results, setResults] = useState<ScheduleContentResponse[] | null>(null)
@@ -140,6 +142,7 @@ export default function ComposerView() {
         setTitle(post.title)
         setDescription(post.description ?? '')
         setMediaFileId(post.mediaFileId ?? null)
+        setThumbnailS3Key(post.thumbnailS3Key ?? null)
         setSelectedPlatform((post.platformTargets?.[0] as PlatformType) ?? null)
         setPostStatus(post.status)
         const prefillTime = post.liveAt ?? post.scheduledAt
@@ -179,6 +182,7 @@ export default function ComposerView() {
   function handleMediaSelect(file: MediaFile) {
     setMediaFileId(file.id)
     setMediaFileName(file.originalName)
+    setThumbnailS3Key(null)
   }
 
   async function handleDelete() {
@@ -221,6 +225,7 @@ export default function ComposerView() {
           platformTargets: selectedPlatform ? [selectedPlatform] : [],
           scheduledAt: scheduledAtUtc,
           liveAt: liveAtUtc,
+          thumbnailS3Key: (selectedPlatform === PlatformType.YOUTUBE && thumbnailS3Key) ? thumbnailS3Key : undefined,
         })
         setEditSuccess(true)
         setTimeout(() => router.push('/dashboard/calendar'), 1500)
@@ -240,6 +245,8 @@ export default function ComposerView() {
           platformTargets: selectedPlatform ? [selectedPlatform] : [],
           scheduledAt: scheduledAtUtc,
           liveAt: liveAtUtc,
+          // CF-96 — thumbnails are YouTube-only
+          thumbnailS3Key: (selectedPlatform === PlatformType.YOUTUBE && thumbnailS3Key) ? thumbnailS3Key : undefined,
         })
         setResults(res)
         if (res.some((r) => !r.error)) {
@@ -366,6 +373,13 @@ export default function ComposerView() {
               </Typography>
             </Box>
             <VaultPickerDialog open={vaultOpen} onClose={() => setVaultOpen(false)} onSelect={handleMediaSelect} />
+            {isYouTubeSelected && mediaFileId && (
+              <ThumbnailSelector
+                mediaFileId={mediaFileId}
+                thumbnailS3Key={thumbnailS3Key}
+                onSelected={setThumbnailS3Key}
+              />
+            )}
           </Box>
 
           {!isTwitterSelected && (

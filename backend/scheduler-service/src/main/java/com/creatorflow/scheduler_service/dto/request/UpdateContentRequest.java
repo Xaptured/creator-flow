@@ -29,4 +29,5 @@ public class UpdateContentRequest {
     private List<PlatformType> platformTargets;
     private Instant scheduledAt;
     private Instant liveAt;
+    private String thumbnailS3Key;
 }

@@ -63,6 +63,9 @@ public class SchedulerService {
             content.setPlatformTargets(serialise(List.of(platform)));
             content.setScheduledAt(scheduledAt);
             content.setLiveAt(request.getLiveAt());
+            if (platform == PlatformType.YOUTUBE) {
+                content.setThumbnailS3Key(request.getThumbnailS3Key());
+            }
             content.setStatus(ContentStatus.SCHEDULED);
 
             try {
@@ -126,6 +129,9 @@ public class SchedulerService {
         content.setDescription(request.getDescription());
         content.setMediaFileId(request.getMediaFileId());
         content.setPlatformTargets(serialise(request.getPlatformTargets()));
+        boolean targetsYouTube = request.getPlatformTargets() != null
+                && request.getPlatformTargets().contains(PlatformType.YOUTUBE);
+        content.setThumbnailS3Key(targetsYouTube ? request.getThumbnailS3Key() : null);
         if (request.getScheduledAt() != null) {
             content.setScheduledAt(request.getScheduledAt());
         }

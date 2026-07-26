@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -67,6 +68,23 @@ public class S3Service {
         return s3Presigner.presignGetObject(r -> r
                 .signatureDuration(expiry)
                 .getObjectRequest(getObjectRequest));
+    }
+
+    /**
+     * Server-side copy within the bucket. Used by CF-96 to promote a selected
+     * thumbnail frame from the temporary {@code thumbnails/} prefix to its
+     * permanent key (frames prefix carries an S3 lifecycle expiry).
+     */
+    public void copyObject(String sourceKey, String destKey) {
+        log.info("Copying S3 object: {} -> {}",
+                sourceKey.substring(0, Math.min(sourceKey.length(), 40)),
+                destKey.substring(0, Math.min(destKey.length(), 40)));
+        s3Client.copyObject(CopyObjectRequest.builder()
+                .sourceBucket(awsProperties.getBucketName())
+                .sourceKey(sourceKey)
+                .destinationBucket(awsProperties.getBucketName())
+                .destinationKey(destKey)
+                .build());
     }
 
     public void deleteObject(String s3Key) {

@@ -30,4 +30,5 @@ public class ScheduleContentRequest {
     private List<PlatformType> platformTargets;
     private Instant scheduledAt;
     private Instant liveAt;
+    private String thumbnailS3Key;
 }
