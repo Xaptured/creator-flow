@@ -276,7 +276,6 @@ export default function DashboardHome() {
         <Grid item xs={12} lg={6}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <AiInsightsCard />
-            <ContentGapCards />
           </Box>
         </Grid>
 
