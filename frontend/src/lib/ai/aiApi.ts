@@ -7,7 +7,7 @@
 import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
 import { CaptionRequest, HashtagRequest } from '@/lib/request/ai'
-import { BestTimeResponse, CaptionResponse, ContentGap, HashtagResponse, InsightsResponse, TrendingPlatform } from '@/lib/response/ai'
+import { BestTimeResponse, CaptionResponse, CommentDigestResponse, ContentGap, HashtagResponse, InsightsResponse, TrendingPlatform } from '@/lib/response/ai'
 
 function bearerHeaders(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}` }
@@ -62,6 +62,16 @@ export async function generateHashtags(
 ): Promise<HashtagResponse> {
   const url = buildUrl('ai', '/api/ai/hashtags')
   const { data } = await axiosClient.post<HashtagResponse>(url, body, {
+    headers: bearerHeaders(accessToken),
+  })
+  return data
+}
+
+export async function generateCommentDigest(
+  accessToken: string,
+): Promise<CommentDigestResponse> {
+  const url = buildUrl('ai', '/api/ai/comment-digest')
+  const { data } = await axiosClient.post<CommentDigestResponse>(url, {}, {
     headers: bearerHeaders(accessToken),
   })
   return data

@@ -70,6 +70,33 @@ export class PromptService {
     );
   }
 
+  commentDigestSystem(): string {
+    return (
+      `You analyse YouTube audience comments for a content creator.\n` +
+      `Return ONLY valid JSON — no prose, no markdown fences.\n` +
+      `Schema: { "items": [ { "question": string, "idea": string } ] }\n` +
+      `Return up to 5 items: "question" is a recurring question or content request the audience is raising, ` +
+      `"idea" is one concrete, actionable video idea answering it.\n` +
+      `Merge near-duplicate questions. If the comments contain fewer distinct questions, return fewer items.`
+    );
+  }
+
+  buildCommentDigestPrompt(
+    comments: { author: string; text: string; likeCount: number }[],
+  ): string {
+    const list = comments
+      .map(
+        (comment, index) =>
+          `  ${index + 1}. [likes: ${comment.likeCount}] ${comment.author}: ${comment.text}`,
+      )
+      .join('\n');
+    return (
+      `Recent comments from this creator's YouTube channel (newest first):\n${list}\n\n` +
+      `Summarise the top questions / content requests this audience is asking, ` +
+      `and give one video idea per question. Weight comments with more likes higher.`
+    );
+  }
+
   buildInsightsPrompt(
     recent: AnalyticsSnapshot[],
     topPosts: AnalyticsSnapshot[],
