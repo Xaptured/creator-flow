@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 
 import { AnalyticsSnapshot } from '../../analytics/model/snapshot.model.js';
 
-/** Structural slot shape for best-time prompts (avoids a dto import cycle). */
 export interface BestTimePromptSlot {
   label: string;
   avgEngagement: number;
