@@ -57,6 +57,9 @@ public class Content {
     @Column(name = "media_file_id")
     private UUID mediaFileId;
 
+    @Column(name = "thumbnail_s3_key", length = 1024)
+    private String thumbnailS3Key;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

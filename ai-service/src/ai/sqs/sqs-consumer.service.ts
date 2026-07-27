@@ -13,6 +13,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 
 import { EmbeddingsService } from '../../embeddings/embeddings.service.js';
+import { VisionService } from '../../vision/vision.service.js';
+import {
+  EVENT_ANALYTICS_UPDATED,
+  EVENT_VIDEO_UPLOADED,
+  VideoUploadedEvent,
+} from '../../vision/video-uploaded.event.js';
 import {
   AnalyticsEventMessage,
   AnalyticsUpdatedEvent,
@@ -43,6 +49,7 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly config: ConfigService,
     private readonly embeddingsService: EmbeddingsService,
+    private readonly visionService: VisionService,
   ) {
     const region = this.config.get<string>(ENV.AWS_REGION, DEFAULTS.AWS_REGION);
     const endpoint = this.config.get<string>(ENV.AWS_SQS_ENDPOINT);
@@ -96,25 +103,46 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleMessage(message: Message): Promise<void> {
+    const msgId = message.MessageId ?? 'unknown';
     try {
-      const event = this.parseEvent(message);
-      if (!event) return;
+      const envelope = this.unwrapEnvelope(message);
+      if (!envelope) {
+        // Unparseable — delete so it doesn't loop forever.
+        await this.deleteMessage(message);
+        return;
+      }
 
-      this.logger.log(
-        `analytics.updated received — ownerId=${event.ownerId} contentId=${event.contentId} platform=${event.platform}`,
-      );
-
-      // Trigger embedding pipeline stub.
-      // Full implementation wired in a later ticket (CF-93+).
-      await this.triggerEmbeddingPipeline(event);
+      switch (envelope.eventType) {
+        case EVENT_ANALYTICS_UPDATED: {
+          const event = this.parseAnalyticsEvent(envelope, msgId);
+          if (event) {
+            this.logger.log(
+              `analytics.updated received — ownerId=${event.ownerId} contentId=${event.contentId} platform=${event.platform}`,
+            );
+            await this.triggerEmbeddingPipeline(event);
+          }
+          break;
+        }
+        case EVENT_VIDEO_UPLOADED: {
+          const event = this.parseVideoUploadedEvent(envelope, msgId);
+          if (event) {
+            this.logger.log(
+              `MEDIA_VIDEO_UPLOADED received — ownerId=${event.ownerId} mediaId=${event.mediaId}`,
+            );
+            await this.visionService.processVideo(event);
+          }
+          break;
+        }
+        default:
+          this.logger.warn(
+            `Unknown eventType "${envelope.eventType}" for ${msgId} — deleting`,
+          );
+      }
 
       await this.deleteMessage(message);
-      this.logger.log(`Message deleted — ${message.MessageId ?? 'unknown'}`);
+      this.logger.log(`Message deleted — ${msgId}`);
     } catch (err) {
-      this.logger.error(
-        `Failed to process message ${message.MessageId ?? 'unknown'}`,
-        err,
-      );
+      this.logger.error(`Failed to process message ${msgId}`, err);
       // Leave message in queue — visibility timeout will return it for retry.
     }
   }
@@ -131,38 +159,46 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Unwraps the two-layer envelope that SNS adds when delivering to SQS.
+   * Unwraps the outer two envelope layers that SNS adds when delivering to SQS.
    *
    * Layer 1 — SQS message body is an SNS notification envelope:
    *   { Type: "Notification", Message: "<json string>", ... }
    *
-   * Layer 2 — SNS envelope.Message is an AnalyticsEventMessage:
-   *   { eventType: "analytics.updated", payload: "<json string>", occurredAt: "..." }
+   * Layer 2 — SNS envelope.Message is an event wrapper:
+   *   { eventType: "...", payload: "<json string>", occurredAt: "..." }
    *
-   * Layer 3 — AnalyticsEventMessage.payload is the actual AnalyticsUpdatedPayload:
-   *   { ownerId, contentId, platform, metrics }
+   * The wrapper is shared by all publishers (analytics-service and
+   * media-service). Layer 3 (payload) is parsed per event type.
    */
-  private parseEvent(message: Message): AnalyticsUpdatedEvent | null {
+  private unwrapEnvelope(message: Message): AnalyticsEventMessage | null {
     const msgId = message.MessageId ?? 'unknown';
     try {
-      // Layer 1: unwrap SNS envelope
       const sqsBody = JSON.parse(message.Body ?? '{}') as SnsEnvelope;
       const rawMessage: string =
         sqsBody.Type === 'Notification' && sqsBody.Message
           ? sqsBody.Message
           : (message.Body ?? '{}');
 
-      // Layer 2: unwrap AnalyticsEventMessage
       const eventMessage = JSON.parse(rawMessage) as AnalyticsEventMessage;
-      if (!eventMessage.payload) {
+      if (!eventMessage.eventType || !eventMessage.payload) {
         this.logger.warn(
-          `Skipping malformed message ${msgId} — missing payload field`,
+          `Skipping malformed message ${msgId} — missing eventType/payload field`,
         );
         return null;
       }
+      return eventMessage;
+    } catch {
+      this.logger.warn(`Failed to parse message body for ${msgId}`);
+      return null;
+    }
+  }
 
-      // Layer 3: parse actual payload
-      const event = JSON.parse(eventMessage.payload) as AnalyticsUpdatedEvent;
+  private parseAnalyticsEvent(
+    envelope: AnalyticsEventMessage,
+    msgId: string,
+  ): AnalyticsUpdatedEvent | null {
+    try {
+      const event = JSON.parse(envelope.payload) as AnalyticsUpdatedEvent;
       if (!event.ownerId || !event.contentId || !event.platform) {
         this.logger.warn(
           `Skipping malformed message ${msgId} — missing required fields (ownerId/contentId/platform)`,
@@ -171,7 +207,26 @@ export class SqsConsumerService implements OnModuleInit, OnModuleDestroy {
       }
       return event;
     } catch {
-      this.logger.warn(`Failed to parse message body for ${msgId}`);
+      this.logger.warn(`Failed to parse analytics payload for ${msgId}`);
+      return null;
+    }
+  }
+
+  private parseVideoUploadedEvent(
+    envelope: AnalyticsEventMessage,
+    msgId: string,
+  ): VideoUploadedEvent | null {
+    try {
+      const event = JSON.parse(envelope.payload) as VideoUploadedEvent;
+      if (!event.ownerId || !event.mediaId || !event.s3Key) {
+        this.logger.warn(
+          `Skipping malformed message ${msgId} — missing required fields (ownerId/mediaId/s3Key)`,
+        );
+        return null;
+      }
+      return event;
+    } catch {
+      this.logger.warn(`Failed to parse video-uploaded payload for ${msgId}`);
       return null;
     }
   }

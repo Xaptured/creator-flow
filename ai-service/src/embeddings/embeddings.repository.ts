@@ -130,10 +130,24 @@ export class EmbeddingsRepository implements OnModuleInit, OnModuleDestroy {
     return {
       id: row.id,
       contentId: row.content_id,
-      embedding: fromSql(row.embedding) as number[],
+      embedding: this.parseEmbedding(row.embedding),
       model: row.model,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
+  }
+
+  /**
+   * pgvector's registerType() is registered on a single pooled connection
+   * (client.setTypeParser is per-connection), so the embedding column arrives
+   * either pre-parsed (that connection) or as a raw '[...]' string (every
+   * other connection). Handle both — calling fromSql on an already-parsed
+   * array throws "invalid text representation".
+   */
+  private parseEmbedding(value: unknown): number[] {
+    if (Array.isArray(value)) {
+      return value as number[];
+    }
+    return fromSql(value) as number[];
   }
 }

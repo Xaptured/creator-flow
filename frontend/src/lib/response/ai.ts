@@ -79,3 +79,29 @@ export interface CommentDigestResponse {
   commentCount: number
   generatedAt: string
 }
+
+export type ThumbnailScoreStatus = 'PENDING' | 'EXTRACTING' | 'SCORED' | 'FAILED'
+
+export interface ThumbnailFrame {
+  frameIndex: number
+  score: number
+  reasoning: string
+  previewUrl: string
+}
+
+export interface ThumbnailScoreResponse {
+  mediaFileId: string
+  status: ThumbnailScoreStatus
+  frames: ThumbnailFrame[]
+  error?: string
+}
+
+export interface SelectThumbnailRequest {
+  mediaFileId: string
+  frameIndex: number
+}
+
+export interface SelectThumbnailResponse {
+  mediaFileId: string
+  thumbnailS3Key: string
+}

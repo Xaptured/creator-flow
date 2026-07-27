@@ -7,7 +7,7 @@
 import axiosClient from '@/lib/http/axiosClient'
 import { buildUrl } from '@/lib/http/serviceUrls'
 import { CaptionRequest, HashtagRequest } from '@/lib/request/ai'
-import { BestTimeResponse, CaptionResponse, CommentDigestResponse, ContentGap, HashtagResponse, InsightsResponse, TrendingPlatform } from '@/lib/response/ai'
+import { BestTimeResponse, CaptionResponse, CommentDigestResponse, ContentGap, HashtagResponse, InsightsResponse, SelectThumbnailRequest, SelectThumbnailResponse, ThumbnailScoreResponse, TrendingPlatform } from '@/lib/response/ai'
 
 function bearerHeaders(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}` }
@@ -72,6 +72,36 @@ export async function generateCommentDigest(
 ): Promise<CommentDigestResponse> {
   const url = buildUrl('ai', '/api/ai/comment-digest')
   const { data } = await axiosClient.post<CommentDigestResponse>(url, {}, {
+    headers: bearerHeaders(accessToken),
+  })
+  return data
+}
+
+export async function getThumbnailScores(
+  mediaFileId: string,
+  accessToken: string,
+): Promise<ThumbnailScoreResponse> {
+  const url = buildUrl('ai', '/api/vision/score-thumbnail/:mediaFileId', { mediaFileId })
+  const { data } = await axiosClient.get<ThumbnailScoreResponse>(url, {
+    headers: bearerHeaders(accessToken),
+  })
+  return data
+}
+
+export async function retryThumbnailScoring(
+  mediaFileId: string,
+  accessToken: string,
+): Promise<void> {
+  const url = buildUrl('ai', '/api/vision/score-thumbnail/:mediaFileId', { mediaFileId })
+  await axiosClient.post(url, {}, { headers: bearerHeaders(accessToken) })
+}
+
+export async function selectThumbnail(
+  body: SelectThumbnailRequest,
+  accessToken: string,
+): Promise<SelectThumbnailResponse> {
+  const url = buildUrl('ai', '/api/vision/select-thumbnail')
+  const { data } = await axiosClient.post<SelectThumbnailResponse>(url, body, {
     headers: bearerHeaders(accessToken),
   })
   return data

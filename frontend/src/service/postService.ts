@@ -1,6 +1,6 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
 import { CaptionRequest, HashtagRequest } from '@/lib/request/ai';
-import { CaptionResponse, CommentDigestResponse, HashtagResponse } from '@/lib/response/ai';
+import { CaptionResponse, CommentDigestResponse, HashtagResponse, SelectThumbnailRequest, SelectThumbnailResponse } from '@/lib/response/ai';
 import { ConfirmUploadRequest, UploadUrlRequest } from '@/lib/request/media';
 import { MediaFile, UploadUrlResponse } from '@/lib/response/media';
 import { ScheduleContentRequest } from '@/lib/request/scheduler';
@@ -50,4 +50,13 @@ export async function generateHashtags(
 export async function generateCommentDigest(): Promise<CommentDigestResponse> {
   const { data } = await browserAxiosClient.post<CommentDigestResponse>('/api/ai/comment-digest', {});
   return data;
+}
+
+export async function selectThumbnail(body: SelectThumbnailRequest): Promise<SelectThumbnailResponse> {
+  const { data } = await browserAxiosClient.post<SelectThumbnailResponse>('/api/ai/select-thumbnail', body);
+  return data;
+}
+
+export async function retryThumbnailScoring(mediaFileId: string): Promise<void> {
+  await browserAxiosClient.post(`/api/ai/score-thumbnail/${encodeURIComponent(mediaFileId)}`, {});
 }

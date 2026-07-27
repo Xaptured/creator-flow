@@ -53,6 +53,7 @@ export interface ScheduledContentDetail {
   title: string
   description: string | null
   mediaFileId: string | null
+  thumbnailS3Key: string | null
   platformTargets: PlatformType[]
   status: ContentStatus
   scheduledAt: string | null

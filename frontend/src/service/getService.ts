@@ -1,5 +1,5 @@
 import browserAxiosClient from '@/lib/http/browserAxiosClient';
-import { BestTimeResponse, ContentGap, InsightsResponse, TrendingPlatform } from '@/lib/response/ai';
+import { BestTimeResponse, ContentGap, InsightsResponse, ThumbnailScoreResponse, TrendingPlatform } from '@/lib/response/ai';
 import { MediaFile } from '@/lib/response/media';
 import { ContentCountResponse, ContentStatusResponse, ScheduledContentDetail, ScheduledPost } from '@/lib/response/scheduler';
 import { PlatformSummary, TopPost, ContentSnapshot } from '@/lib/response/analytics';
@@ -68,6 +68,13 @@ export async function getTimezones(): Promise<TimezonesResponse> {
 
 export async function getAiInsights(): Promise<InsightsResponse> {
   const { data } = await browserAxiosClient.get<InsightsResponse>('/api/ai/insights');
+  return data;
+}
+
+export async function getThumbnailScores(mediaFileId: string): Promise<ThumbnailScoreResponse> {
+  const { data } = await browserAxiosClient.get<ThumbnailScoreResponse>(
+    `/api/ai/score-thumbnail/${encodeURIComponent(mediaFileId)}`
+  );
   return data;
 }
 

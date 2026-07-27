@@ -24,6 +24,7 @@ public class ScheduledContentDetail {
     private String title;
     private String description;
     private UUID mediaFileId;
+    private String thumbnailS3Key;
     private List<PlatformType> platformTargets;
     private ContentStatus status;
     private Instant scheduledAt;
@@ -37,6 +38,7 @@ public class ScheduledContentDetail {
         d.title = content.getTitle();
         d.description = content.getDescription();
         d.mediaFileId = content.getMediaFileId();
+        d.thumbnailS3Key = content.getThumbnailS3Key();
         d.status = content.getStatus();
         d.scheduledAt = content.getScheduledAt();
         d.liveAt = content.getLiveAt();

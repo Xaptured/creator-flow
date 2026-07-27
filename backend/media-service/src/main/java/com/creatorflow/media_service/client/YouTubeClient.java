@@ -37,6 +37,7 @@ public class YouTubeClient {
     // --- YouTube Data API v3 endpoints ---
     private static final String YOUTUBE_CHANNELS_URL   = "https://www.googleapis.com/youtube/v3/channels";
     private static final String YOUTUBE_UPLOAD_URL     = "https://www.googleapis.com/upload/youtube/v3/videos";
+    private static final String YOUTUBE_THUMBNAIL_URL  = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
 
     // --- Query params ---
     private static final String CHANNELS_PART          = "snippet,statistics";
@@ -203,6 +204,44 @@ public class YouTubeClient {
             throw new YouTubeApiException("YouTube upload API error: " + e.getStatusCode(), e);
         } catch (RestClientException e) {
             throw new YouTubeApiException("Network error during YouTube upload", e);
+        }
+    }
+
+    /**
+     * Set a custom thumbnail on an uploaded video (CF-96).
+     *
+     * <p>POST {@code /upload/youtube/v3/thumbnails/set?videoId=...} with raw JPEG bytes.
+     * Requires the channel to be verified (phone) — an unverified channel gets 403
+     * {@code forbidden}; that reason is surfaced in the exception message so the
+     * caller can log it clearly.</p>
+     *
+     * @throws YouTubeApiException on 401/403/network failure
+     */
+    public void setThumbnail(String accessToken, String videoId, byte[] imageBytes) {
+        String url = UriComponentsBuilder.fromHttpUrl(YOUTUBE_THUMBNAIL_URL)
+                .queryParam("videoId", videoId)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.IMAGE_JPEG);
+
+        try {
+            restTemplate.exchange(url, HttpMethod.POST,
+                    new HttpEntity<>(imageBytes, headers), JsonNode.class);
+            log.info("YouTube thumbnail set: videoId={}", videoId);
+
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new YouTubeApiException("YouTube token expired during thumbnail set — re-connect required", e);
+            }
+            if (e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                throw new YouTubeApiException(
+                        "YouTube thumbnail set forbidden — channel not verified for custom thumbnails, or quota exceeded", e);
+            }
+            throw new YouTubeApiException("YouTube thumbnail API error: " + e.getStatusCode(), e);
+        } catch (RestClientException e) {
+            throw new YouTubeApiException("Network error during YouTube thumbnail set", e);
         }
     }
 
