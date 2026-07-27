@@ -55,10 +55,7 @@ export class GapService {
 
     // Empty catalogue: zero embeddings join to nothing — everything trending
     // in the niche is a gap. Return the freshest, score pinned to 1.
-    const hasEmbeddings = await this.repository.hasAnyEmbedding(
-      ownerId,
-      model,
-    );
+    const hasEmbeddings = await this.repository.hasAnyEmbedding(ownerId, model);
     if (!hasEmbeddings) {
       return this.repository.findFallbackTopics(
         model,
