@@ -28,7 +28,6 @@ const platformIcon: Record<TrendingPlatform, React.ReactNode> = {
 
 /** X trending is not sourced (Pro-tier cost) — only these platforms get filter buttons. */
 const FILTERS: { label: string; value: TrendingPlatform | undefined }[] = [
-  { label: 'All', value: undefined },
   { label: 'YouTube', value: 'YOUTUBE' },
   { label: 'Instagram', value: 'INSTAGRAM' },
 ]
@@ -55,7 +54,7 @@ interface ContentGapCardsProps {
 }
 
 export default function ContentGapCards({ platform: controlledPlatform }: ContentGapCardsProps) {
-  const [selected, setSelected] = useState<TrendingPlatform | undefined>(undefined)
+  const [selected, setSelected] = useState<TrendingPlatform | undefined>('YOUTUBE')
   const isControlled = controlledPlatform !== undefined
   const platform = isControlled ? controlledPlatform : selected
 
