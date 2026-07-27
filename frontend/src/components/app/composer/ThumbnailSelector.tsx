@@ -106,7 +106,7 @@ export default function ThumbnailSelector({ mediaFileId, thumbnailS3Key, onSelec
       {analyzing && (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5 }}>
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} variant="rounded" height={72} sx={{ bgcolor: 'var(--th-border)' }} />
+            <Skeleton key={i} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '16 / 9', bgcolor: 'var(--th-border)' }} />
           ))}
         </Box>
       )}
@@ -147,7 +147,7 @@ export default function ThumbnailSelector({ mediaFileId, thumbnailS3Key, onSelec
                   <img
                     src={frame.previewUrl}
                     alt={`Thumbnail candidate ${frame.frameIndex + 1}`}
-                    style={{ width: '100%', height: 72, objectFit: 'cover', display: 'block' }}
+                    style={{ width: '100%', height: 'auto', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }}
                   />
                   <Box
                     sx={{

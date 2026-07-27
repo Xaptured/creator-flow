@@ -14,7 +14,11 @@ const execFileAsync = promisify(execFile);
 /** Frame positions as fractions of video duration (CF-96 ticket: 10/25/50/75%). */
 export const FRAME_POSITIONS = [0.1, 0.25, 0.5, 0.75] as const;
 
-const MAX_FRAME_WIDTH = 1280;
+// YouTube thumbnail spec: 1280×720, 16:9. Every frame is normalised to this —
+// scale to cover, then centre-crop — so portrait/vertical videos never produce
+// narrow frames.
+const THUMB_WIDTH = 1280;
+const THUMB_HEIGHT = 720;
 const JPEG_QUALITY = 4; // ffmpeg -q:v scale: 2 (best) … 31 (worst)
 const EXTRACT_TIMEOUT_MS = 60_000;
 const DOWNLOAD_TIMEOUT_MS = 120_000;
@@ -105,8 +109,9 @@ export class FrameExtractorService {
   }
 
   /**
-   * One frame at `timestampSeconds`, scaled to ≤1280px wide (even height),
-   * JPEG. `-ss` before `-i` = fast keyframe seek.
+   * One frame at `timestampSeconds`, normalised to 1280×720 (YouTube thumbnail
+   * spec): scale up to cover the 16:9 box, then centre-crop the overflow.
+   * JPEG output. `-ss` before `-i` = fast keyframe seek.
    */
   private async extractSingleFrame(
     videoPath: string,
@@ -123,7 +128,7 @@ export class FrameExtractorService {
         '-frames:v',
         '1',
         '-vf',
-        `scale='min(${MAX_FRAME_WIDTH},iw)':-2`,
+        `scale=${THUMB_WIDTH}:${THUMB_HEIGHT}:force_original_aspect_ratio=increase,crop=${THUMB_WIDTH}:${THUMB_HEIGHT}`,
         '-q:v',
         String(JPEG_QUALITY),
         '-y',
