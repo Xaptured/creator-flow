@@ -51,7 +51,7 @@ public class WebSecurityConfig {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));
         http.csrf(AbstractHttpConfigurer::disable);
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health").permitAll().requestMatchers(
+        http.authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll().requestMatchers(
                         SWAGGER_UI_URLS
                 ).permitAll()
                                                                                 .anyRequest().authenticated());

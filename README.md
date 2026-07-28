@@ -158,6 +158,7 @@ cp ai-service/.env.example ai-service/.env
 | [`docs/local-dev-setup.md`](docs/local-dev-setup.md) | Full local setup walkthrough |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 | [`docs/api-contracts.md`](docs/api-contracts.md) | API specs per service |
+| [`docs/docker-standards.md`](docs/docker-standards.md) | Container build standard — base images, layer order, non-root, JVM flags, tagging |
 
 ---
 

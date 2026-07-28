@@ -1,0 +1,66 @@
+# =============================================================================
+# auth-service build context exclusions
+#
+# The build context is this directory (`docker build backend/auth-service`).
+# Everything not listed here is uploaded to the daemon AND participates in
+# cache-key computation — so an unexcluded target/ dir means every local build
+# after an IDE compile invalidates the COPY layers.
+#
+# Keep in sync with docs/docker-standards.md § .dockerignore.
+# =============================================================================
+
+# --- Build output ------------------------------------------------------------
+target/
+*.jar
+*.war
+*.class
+
+# --- VCS ---------------------------------------------------------------------
+.git/
+.gitignore
+.gitattributes
+
+# --- Maven wrapper (unused: the build stage uses the maven base image) -------
+.mvn/
+mvnw
+mvnw.cmd
+
+# --- Tests (executed in CI, never in the image build) ------------------------
+# Removing these keeps the source layer from invalidating on test-only commits.
+# If the image build is ever changed to run tests, delete this block first.
+src/test/
+
+# --- IDE / editor ------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*~
+
+# --- Docs --------------------------------------------------------------------
+*.md
+docs/
+
+# --- Local config and secrets (must never enter an image layer) --------------
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# --- OS noise ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Docker itself -----------------------------------------------------------
+Dockerfile
+.dockerignore
