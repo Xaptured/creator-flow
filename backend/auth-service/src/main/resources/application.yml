@@ -28,7 +28,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/creatorflow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/creatorflow}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/creatorflow/protocol/openid-connect/certs}
 
   flyway:
     enabled: false
@@ -47,12 +48,28 @@ spring:
           max-wait: 1000ms
 
   profiles:
-    active: ${APP_ENV}
+    active: ${APP_ENV:local}
+
+  # Java 21 virtual threads for the Tomcat request executor. Override without
+  # touching this file via env var SPRING_THREADS_VIRTUAL_ENABLED=false.
+  threads:
+    virtual:
+      enabled: true
+
+  lifecycle:
+    # Upper bound on graceful shutdown; must stay below the ECS
+    # stopTimeout (default 30s) or the task gets SIGKILLed mid-drain.
+    timeout-per-shutdown-phase: 20s
 
 server:
-  port: ${AUTH_SERVER_PORT}
+  # Default lets `docker run` boot with only DB/Redis/Keycloak env supplied.
+  # ECS task definitions still set AUTH_SERVER_PORT explicitly.
+  port: ${AUTH_SERVER_PORT:8080}
   servlet:
     context-path: /creator-flow/auth
+  # Finish in-flight requests on SIGTERM instead of dropping them when ECS
+  # replaces a task (rolling deploy or Spot capacity reclaim).
+  shutdown: graceful
 
 management:
   endpoints:
@@ -62,6 +79,19 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      # Exposes /actuator/health/readiness and /actuator/health/liveness
+      # outside Kubernetes (auto-enabled only on k8s otherwise).
+      probes:
+        enabled: true
+  health:
+    # Readiness deliberately left as readinessState only — pulling db/redis
+    # into the group would deregister every task from the ALB simultaneously
+    # during a brief DB blip. Liveness stays livenessState only so a
+    # dependency outage never triggers a restart storm.
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 springdoc:
   api-docs:

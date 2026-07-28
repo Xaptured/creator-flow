@@ -1,0 +1,75 @@
+# =============================================================================
+# Repo-root build context exclusions.
+#
+# Backend service images are built with the service dir as context
+# (`docker build backend/<service>`) and use their own .dockerignore. This file
+# covers any build run from the repo root — frontend, ai-service, and CI jobs
+# that pass `.` as the context.
+#
+# See docs/docker-standards.md § .dockerignore.
+# =============================================================================
+
+# --- VCS and CI --------------------------------------------------------------
+.git/
+.github/
+.gitignore
+
+# --- Java build output -------------------------------------------------------
+**/target/
+**/*.jar
+**/*.war
+**/*.class
+
+# --- Node build output -------------------------------------------------------
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+npm-debug.log*
+yarn-error.log*
+
+# --- Maven wrapper -----------------------------------------------------------
+**/.mvn/
+**/mvnw
+**/mvnw.cmd
+
+# --- IDE / editor ------------------------------------------------------------
+**/.idea/
+**/*.iml
+.vscode/
+**/.settings/
+**/.project
+**/.classpath
+*.swp
+*~
+
+# --- Docs and agent config ---------------------------------------------------
+*.md
+docs/
+.claude/
+.agents/
+creatorflow-dev/
+skills-lock.json
+
+# --- Local config and secrets (must never enter an image layer) --------------
+.env
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+
+# --- Local infra -------------------------------------------------------------
+docker-compose.yml
+docker-compose.*.yml
+scripts/localstack/
+infra/
+
+# --- OS noise ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
