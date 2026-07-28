@@ -28,9 +28,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Env-driven so the container never carries a baked-in issuer.
-          # Default keeps existing local-dev behaviour (compose Keycloak).
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/creatorflow}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/creatorflow/protocol/openid-connect/certs}
 
   flyway:
     enabled: false
