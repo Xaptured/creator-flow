@@ -24,18 +24,20 @@ public class MediaServiceClient {
 
     private static final Logger log = LoggerFactory.getLogger(MediaServiceClient.class);
     private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
-    private static final String REFRESH_EXPIRING_PATH = "http://localhost:8082/creator-flow/media/internal/platforms/refresh-expiring";
 
     private final RestClient restClient;
     private final String internalSecret;
+    private final String refreshExpiringPath;
 
     public MediaServiceClient(
             @Value("${app.media-service.base-url}") String mediaServiceBaseUrl,
+            @Value("${app.media-service.refresh-expiring-path}") String refreshExpiringPath,
             @Value("${app.internal.secret}") String internalSecret) {
         this.restClient = RestClient.builder()
                 .baseUrl(mediaServiceBaseUrl)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
+        this.refreshExpiringPath = refreshExpiringPath;
         this.internalSecret = internalSecret;
     }
 
@@ -48,7 +50,7 @@ public class MediaServiceClient {
     public TokenRefreshResult refreshExpiringTokens() {
         try {
             return restClient.post()
-                    .uri(REFRESH_EXPIRING_PATH)
+                    .uri(refreshExpiringPath)
                     .header(INTERNAL_SECRET_HEADER, internalSecret)
                     .retrieve()
                     .body(TokenRefreshResult.class);

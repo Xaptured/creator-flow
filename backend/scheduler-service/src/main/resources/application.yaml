@@ -28,18 +28,26 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/creatorflow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/creatorflow}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/creatorflow/protocol/openid-connect/certs}
 
   flyway:
     enabled: false
 
   profiles:
-    active: ${APP_ENV}
+    active: ${APP_ENV:local}
+
+  quartz:
+    job-store-type: memory
+
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
 server:
-  port: ${SCHEDULER_SERVER_PORT}
+  port: ${SCHEDULER_SERVER_PORT:8080}
   servlet:
     context-path: /creator-flow/scheduler
+  shutdown: graceful
 
 management:
   endpoints:
@@ -49,6 +57,13 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 springdoc:
   api-docs:
@@ -83,5 +98,6 @@ app:
     poll-delay-ms: ${SQS_POLL_DELAY_MS}
   media-service:
     base-url: ${MEDIA_SERVICE_BASE_URL}
+    refresh-expiring-path: ${MEDIA_REFRESH_EXPIRING_PATH:/creator-flow/media/internal/platforms/refresh-expiring}
   internal:
     secret: ${INTERNAL_SERVICE_SECRET}

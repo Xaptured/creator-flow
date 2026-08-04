@@ -23,7 +23,74 @@
 #   Verify SNS topics:     aws --endpoint-url=http://localhost:4566 --region us-east-1 sns list-topics
 # =============================================================================
 
-version: "3.9"
+# `version:` is obsolete in Compose v2 and emits a warning — intentionally absent.
+
+# ---------------------------------------------------------------------------
+# Shared fragments for the backend services (CF-110)
+#
+# `docker compose up -d`                    → infra only (postgres, redis,
+#                                              keycloak, localstack)
+# `docker compose --profile backend up -d`  → infra + all five Spring services,
+#                                              built from their Dockerfiles
+#
+# Backend services sit behind the `backend` profile so a dev who only wants a
+# database is not forced to build and run five JVMs.
+# ---------------------------------------------------------------------------
+x-backend-service: &backend-service
+  restart: unless-stopped
+  networks:
+    - creatorflow_net
+  profiles:
+    - backend
+
+# Config every Spring service needs. Hostnames are compose service names, not
+# localhost — inside a container localhost is the container itself.
+x-spring-env: &spring-env
+  APP_ENV: ${APP_ENV:-local}
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: ${POSTGRES_DB}
+  DB_USERNAME: ${POSTGRES_USER}
+  DB_PASSWORD: ${POSTGRES_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  # issuer-uri stays localhost: it is the expected `iss` claim, and tokens are
+  # minted through the browser. Only the JWKS fetch uses the container hostname.
+  KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8080/realms/creatorflow}
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/creatorflow/protocol/openid-connect/certs
+  AWS_REGION: ${AWS_REGION:-ap-south-1}
+  AWS_ENDPOINT_OVERRIDE: http://localstack:4566
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+  INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+  SQS_POLL_DELAY_MS: ${SQS_POLL_DELAY_MS:-5000}
+  MEDIA_SERVICE_BASE_URL: http://media-service:8080
+  FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
+  # Log level for application code only (com.creatorflow.*), not the framework.
+  # Set LOG_LEVEL_APP=DEBUG in .env to see idle-path logs — e.g. PublishJob
+  # logs "no due content" at debug, so an INFO-level container looks silent
+  # even though the trigger is firing on schedule.
+  LOGGING_LEVEL_COM_CREATORFLOW: ${LOG_LEVEL_APP:-INFO}
+
+# Every Spring service waits for infra to be healthy and for migrations to have
+# finished — all of them run ddl-auto: validate and fail fast on an empty schema.
+x-depends-on-infra: &depends-on-infra
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  keycloak:
+    # service_started, not service_healthy: no Spring service talks to Keycloak
+    # during startup. With jwk-set-uri configured, the JWKS fetch is lazy and
+    # happens on the first token validation. Gating boot on Keycloak's health
+    # means a slow or misconfigured IdP blocks the entire backend from starting
+    # for no reason.
+    condition: service_started
+  localstack:
+    condition: service_healthy
+  db-migrations:
+    condition: service_completed_successfully
 
 # ---------------------------------------------------------------------------
 # Named volumes — data persists across container restarts
@@ -133,6 +200,10 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
+      # Required for /health/ready to exist at all — Keycloak 24 serves the
+      # health endpoints only when this is on. Without it the healthcheck below
+      # 404s forever and anything gated on `service_healthy` never starts.
+      KC_HEALTH_ENABLED: "true"
     ports:
       - "8080:8080"
     volumes:
@@ -189,3 +260,156 @@ services:
       start_period: 15s
     networks:
       - creatorflow_net
+
+  # ==========================================================================
+  # Backend services — Phase 5, Week 21 (CF-110)
+  #
+  # All five build from the multi-stage Dockerfiles documented in
+  # docs/docker-standards.md, so local dev and production run the same
+  # artifact. All are behind the `backend` profile:
+  #
+  #   docker compose --profile backend up -d --build
+  #
+  # Each container listens on 8080 internally (the server.port default) and is
+  # published on a distinct host port. Service-to-service calls use the compose
+  # service name and the INTERNAL port, e.g. http://media-service:8080.
+  # ==========================================================================
+
+  # --------------------------------------------------------------------------
+  # db-migrations — one-shot Flyway runner, not a server
+  #
+  # Has no spring-boot-starter-web, so the JVM exits once migrations finish.
+  # That exit is what `service_completed_successfully` gates on: every other
+  # service runs ddl-auto: validate and fails fast against an empty schema.
+  # --------------------------------------------------------------------------
+  db-migrations:
+    <<: *backend-service
+    build:
+      context: ./backend/db-migrations
+      args:
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: creatorflow/db-migrations:local
+    container_name: creatorflow_db_migrations
+    # One-shot: must not be restarted after a successful exit.
+    restart: "no"
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_MIGRATIONS_PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
+  # auth-service — reference implementation of the Dockerfile standard
+  # --------------------------------------------------------------------------
+  auth-service:
+    <<: *backend-service
+    build:
+      context: ./backend/auth-service
+      args:
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: creatorflow/auth-service:local
+    container_name: creatorflow_auth_service
+    ports:
+      - "${AUTH_SERVER_PORT:-8081}:8080"
+    environment:
+      <<: *spring-env
+    depends_on: *depends-on-infra
+
+  # --------------------------------------------------------------------------
+  # media-service — S3 presigned upload/serve, platform OAuth, SQS dispatch
+  # --------------------------------------------------------------------------
+  media-service:
+    <<: *backend-service
+    build:
+      context: ./backend/media-service
+      args:
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: creatorflow/media-service:local
+    container_name: creatorflow_media_service
+    ports:
+      - "${MEDIA_SERVER_PORT:-8082}:8080"
+    environment:
+      <<: *spring-env
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      AWS_SQS_QUEUE_POST_DISPATCHER: ${AWS_SQS_QUEUE_POST_DISPATCHER}
+      AWS_SNS_TOPIC_CONTENT_PUBLISHED: ${AWS_SNS_TOPIC_CONTENT_PUBLISHED}
+      AWS_SNS_TOPIC_MEDIA_EVENTS: ${AWS_SNS_TOPIC_MEDIA_EVENTS}
+      GOOGLE_YOUTUBE_CLIENT_ID: ${GOOGLE_YOUTUBE_CLIENT_ID}
+      GOOGLE_YOUTUBE_CLIENT_SECRET: ${GOOGLE_YOUTUBE_CLIENT_SECRET}
+      GOOGLE_YOUTUBE_REDIRECT_URI: ${GOOGLE_YOUTUBE_REDIRECT_URI}
+      GOOGLE_YOUTUBE_SCOPES: ${GOOGLE_YOUTUBE_SCOPES}
+      INSTAGRAM_CLIENT_ID: ${INSTAGRAM_CLIENT_ID}
+      INSTAGRAM_CLIENT_SECRET: ${INSTAGRAM_CLIENT_SECRET}
+      INSTAGRAM_REDIRECT_URI: ${INSTAGRAM_REDIRECT_URI}
+      INSTAGRAM_SCOPES: ${INSTAGRAM_SCOPES}
+      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
+      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
+      TWITTER_REDIRECT_URI: ${TWITTER_REDIRECT_URI}
+      TWITTER_SCOPES: ${TWITTER_SCOPES}
+      TOKEN_REFRESH_AHEAD_HOURS: ${TOKEN_REFRESH_AHEAD_HOURS:-12}
+      IG_CONTAINER_POLL_INTERVAL_SECONDS: ${IG_CONTAINER_POLL_INTERVAL_SECONDS:-10}
+      IG_CONTAINER_TIMEOUT_MINUTES: ${IG_CONTAINER_TIMEOUT_MINUTES:-5}
+    depends_on: *depends-on-infra
+
+  # --------------------------------------------------------------------------
+  # scheduler-service — Quartz jobs + SNS publish
+  #
+  # Quartz uses the IN-MEMORY job store: no persistence, no cluster lock.
+  # Do NOT scale this service — a second replica runs every job twice.
+  # --------------------------------------------------------------------------
+  scheduler-service:
+    <<: *backend-service
+    build:
+      context: ./backend/scheduler-service
+      args:
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: creatorflow/scheduler-service:local
+    container_name: creatorflow_scheduler_service
+    ports:
+      - "${SCHEDULER_SERVER_PORT:-8083}:8080"
+    environment:
+      <<: *spring-env
+      AWS_SNS_TOPIC_CREATORFLOW_EVENTS: ${AWS_SNS_TOPIC_CREATORFLOW_EVENTS}
+      PUBLISH_JOB_INTERVAL_SECONDS: ${PUBLISH_JOB_INTERVAL_SECONDS:-60}
+      TOKEN_REFRESH_JOB_INTERVAL_SECONDS: ${TOKEN_REFRESH_JOB_INTERVAL_SECONDS:-3600}
+    depends_on: *depends-on-infra
+
+  # --------------------------------------------------------------------------
+  # analytics-service — SQS consumer + periodic metric fetch
+  #
+  # Same in-memory Quartz caveat as scheduler-service: do not scale.
+  # --------------------------------------------------------------------------
+  analytics-service:
+    <<: *backend-service
+    build:
+      context: ./backend/analytics-service
+      args:
+        VCS_REF: ${VCS_REF:-local}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: creatorflow/analytics-service:local
+    container_name: creatorflow_analytics_service
+    ports:
+      - "${ANALYTICS_SERVER_PORT:-8084}:8080"
+    environment:
+      <<: *spring-env
+      AWS_SQS_QUEUE_ANALYTICS: ${AWS_SQS_QUEUE_ANALYTICS}
+      AWS_SNS_TOPIC_ANALYTICS_EVENTS: ${AWS_SNS_TOPIC_ANALYTICS_EVENTS}
+      GOOGLE_YOUTUBE_ANALYTICS_API_BASE_URL: ${GOOGLE_YOUTUBE_ANALYTICS_API_BASE_URL}
+      GOOGLE_YOUTUBE_DATA_API_BASE_URL: ${GOOGLE_YOUTUBE_DATA_API_BASE_URL:-https://www.googleapis.com/youtube/v3}
+      INSTAGRAM_GRAPH_API_BASE_URL: ${INSTAGRAM_GRAPH_API_BASE_URL}
+      TWITTER_API_BASE_URL: ${TWITTER_API_BASE_URL}
+      # TEST-ONLY accelerated metric windows. Defaults to false in the image;
+      # opt in here for local dev only.
+      METRICS_ACCELERATED: ${METRICS_ACCELERATED:-false}
+      METRICS_ACCELERATED_OFFSETS: ${METRICS_ACCELERATED_OFFSETS:-10,15,20}
+    depends_on: *depends-on-infra
