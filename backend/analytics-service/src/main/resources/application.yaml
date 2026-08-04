@@ -28,7 +28,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/creatorflow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/creatorflow}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/creatorflow/protocol/openid-connect/certs}
 
   flyway:
     enabled: false
@@ -46,9 +47,16 @@ spring:
           min-idle: 1
 
   profiles:
-    active: ${APP_ENV}
+    active: ${APP_ENV:local}
 
+  lifecycle:
+    # Below the ECS stopTimeout (default 30s) so the task is never SIGKILLed
+    # mid-drain. Gives the in-flight SQS message time to be acked or returned —
+    # otherwise it waits out the queue visibility timeout before redelivery.
+    timeout-per-shutdown-phase: 20s
 
+  # In-memory job store: no persistence, no cluster lock. Run exactly ONE
+  # task/replica or every metric-fetch job runs twice.
   quartz:
     job-store-type: memory
     auto-startup: true
@@ -63,9 +71,12 @@ spring:
     enabled: true
 
 server:
-  port: ${ANALYTICS_SERVER_PORT}
+  port: ${ANALYTICS_SERVER_PORT:8080}
   servlet:
     context-path: /creator-flow/analytics
+  # Finish in-flight requests on SIGTERM instead of dropping them when ECS
+  # replaces a task (rolling deploy or Spot capacity reclaim).
+  shutdown: graceful
 
 management:
   endpoints:
@@ -75,6 +86,16 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      # Exposes /actuator/health/readiness and /liveness outside Kubernetes.
+      probes:
+        enabled: true
+  health:
+    # readiness = readinessState only. Including db/redis would deregister
+    # every task from the ALB at once during a brief dependency blip.
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 springdoc:
   api-docs:
@@ -97,7 +118,10 @@ app:
   # schedule and fire after the minute offsets below (window 0 at 5m, 1 at 10m,
   # 2 at 15m by default). Keep accelerated=false in production.
   metrics:
-    accelerated: ${METRICS_ACCELERATED:true}
+    # Default flipped to false: this ships in an image, and a missed env var
+    # must not silently run accelerated metric windows in production.
+    # Local dev opts in via METRICS_ACCELERATED=true.
+    accelerated: ${METRICS_ACCELERATED:false}
     accelerated-offset-minutes: ${METRICS_ACCELERATED_OFFSETS:10,15,20}
   cors:
     allowed-origins:

@@ -61,7 +61,7 @@ public class WebSecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable);
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers(SWAGGER_UI_URLS).permitAll()
                 .requestMatchers(PUBLIC_URLS).permitAll()
                 .requestMatchers(INTERNAL_URLS).permitAll()

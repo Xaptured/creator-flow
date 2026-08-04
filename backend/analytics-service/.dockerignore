@@ -1,12 +1,7 @@
 # =============================================================================
-# auth-service build context exclusions
-#
-# The build context is this directory (`docker build backend/auth-service`).
-# Everything not listed here is uploaded to the daemon AND participates in
-# cache-key computation — so an unexcluded target/ dir means every local build
-# after an IDE compile invalidates the COPY layers.
-#
-# Keep in sync with docs/docker-standards.md § .dockerignore.
+# analytics-service build context exclusions.
+# Mirror of backend/auth-service/.dockerignore — keep the two in sync.
+# See docs/docker-standards.md § .dockerignore.
 # =============================================================================
 
 # --- Build output ------------------------------------------------------------
@@ -26,8 +21,6 @@ mvnw
 mvnw.cmd
 
 # --- Tests (executed in CI, never in the image build) ------------------------
-# Removing these keeps the source layer from invalidating on test-only commits.
-# If the image build is ever changed to run tests, delete this block first.
 src/test/
 
 # --- IDE / editor ------------------------------------------------------------
