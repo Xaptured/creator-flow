@@ -1,0 +1,66 @@
+# =============================================================================
+# ai-service build context exclusions.
+#
+# Build context is this directory: `docker build -t ai-service:local ai-service`.
+# The repo-root /.dockerignore does NOT apply here — it only covers builds that
+# pass `.` as the context. Both files are required; see
+# docs/docker-standards.md § .dockerignore.
+#
+# Patterns are matched relative to the context root, NOT recursively. A bare
+# `*.key` excludes ./foo.key and nothing else. Secret patterns therefore carry
+# a `**/` prefix or they are decorative.
+# =============================================================================
+
+# --- VCS ---------------------------------------------------------------------
+.git/
+.gitignore
+
+# --- Node build output and deps ----------------------------------------------
+# node_modules is rebuilt inside the image from package-lock.json; copying the
+# host's would defeat the npm ci cache layer and may carry host-OS binaries.
+node_modules/
+dist/
+build/
+coverage/
+.tmp/
+npm-debug.log*
+
+# --- Tests -------------------------------------------------------------------
+# Tests run in CI (.github/workflows/ci.yml), not in the image build.
+# Excluding them keeps test-only commits from invalidating the source layer.
+test/
+**/*.spec.ts
+**/*.e2e-spec.ts
+
+# --- Lambda event fixtures ---------------------------------------------------
+# Test inputs piped in at invoke time, not image content.
+events/
+
+# --- Local config and secrets (must never enter an image layer) --------------
+.env
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+**/*credentials*.json
+**/*service-account*.json
+
+# --- Docs and tooling config -------------------------------------------------
+*.md
+.prettierrc
+eslint.config.mjs
+Dockerfile
+.dockerignore
+
+# --- IDE / editor ------------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.swp
+*~
+
+# --- OS noise ----------------------------------------------------------------
+.DS_Store
+Thumbs.db

@@ -42,6 +42,10 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Lambda event fixtures materialised with a real token/key (see events/README.md).
+# Committed fixtures carry REPLACE_AT_INVOKE_TIME placeholders only.
+events/*.local.json
+
 # temp directory
 .temp
 .tmp
