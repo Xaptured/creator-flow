@@ -110,7 +110,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Must match ai-service/Dockerfile's base image. The Lambda container
+          # runs Node 22; testing on 20 would leave a dev/prod skew in exactly
+          # the job that gates the artifact. See CF-111 — jwks-rsa -> jose needs
+          # require(esm), which is 20.19+ / 22.12+ only.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: ai-service/package-lock.json
       - name: Install

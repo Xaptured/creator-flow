@@ -1,0 +1,33 @@
+{
+  "version": "2.0",
+  "routeKey": "$default",
+  "rawPath": "/api/embeddings/backfill",
+  "rawQueryString": "",
+  "headers": {
+    "accept": "*/*",
+    "content-length": "0",
+    "content-type": "application/json",
+    "host": "localhost",
+    "user-agent": "creatorflow-rie-smoke",
+    "x-internal-api-key": "REPLACE_AT_INVOKE_TIME"
+  },
+  "requestContext": {
+    "accountId": "000000000000",
+    "apiId": "local",
+    "domainName": "localhost",
+    "domainPrefix": "local",
+    "http": {
+      "method": "POST",
+      "path": "/api/embeddings/backfill",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "creatorflow-rie-smoke"
+    },
+    "requestId": "local-embeddings-0001",
+    "routeKey": "$default",
+    "stage": "$default",
+    "time": "01/Jan/2026:00:00:00 +0000",
+    "timeEpoch": 1767225600000
+  },
+  "isBase64Encoded": false
+}

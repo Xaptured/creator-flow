@@ -1,0 +1,31 @@
+{
+  "version": "2.0",
+  "routeKey": "$default",
+  "rawPath": "/api/health",
+  "rawQueryString": "",
+  "headers": {
+    "accept": "*/*",
+    "content-length": "0",
+    "host": "localhost",
+    "user-agent": "creatorflow-rie-smoke"
+  },
+  "requestContext": {
+    "accountId": "000000000000",
+    "apiId": "local",
+    "domainName": "localhost",
+    "domainPrefix": "local",
+    "http": {
+      "method": "GET",
+      "path": "/api/health",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "creatorflow-rie-smoke"
+    },
+    "requestId": "local-health-0001",
+    "routeKey": "$default",
+    "stage": "$default",
+    "time": "01/Jan/2026:00:00:00 +0000",
+    "timeEpoch": 1767225600000
+  },
+  "isBase64Encoded": false
+}

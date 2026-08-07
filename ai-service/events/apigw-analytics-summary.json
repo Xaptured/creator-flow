@@ -1,0 +1,35 @@
+{
+  "version": "2.0",
+  "routeKey": "$default",
+  "rawPath": "/api/analytics/summary/11111111-2222-3333-4444-555555555555",
+  "rawQueryString": "",
+  "headers": {
+    "accept": "*/*",
+    "content-length": "0",
+    "host": "localhost",
+    "user-agent": "creatorflow-rie-smoke",
+    "x-internal-api-key": "REPLACE_AT_INVOKE_TIME"
+  },
+  "pathParameters": {
+    "ownerId": "11111111-2222-3333-4444-555555555555"
+  },
+  "requestContext": {
+    "accountId": "000000000000",
+    "apiId": "local",
+    "domainName": "localhost",
+    "domainPrefix": "local",
+    "http": {
+      "method": "GET",
+      "path": "/api/analytics/summary/11111111-2222-3333-4444-555555555555",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "creatorflow-rie-smoke"
+    },
+    "requestId": "local-analytics-0001",
+    "routeKey": "$default",
+    "stage": "$default",
+    "time": "01/Jan/2026:00:00:00 +0000",
+    "timeEpoch": 1767225600000
+  },
+  "isBase64Encoded": false
+}
