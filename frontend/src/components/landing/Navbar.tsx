@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useDark } from '@/context/ThemeContext';
 import { signInWithKeycloak } from '@/actions/auth';
+import { AUTH_ENABLED } from '@/lib/flags';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -58,15 +59,17 @@ export default function Navbar() {
             {dark ? '☀️' : '🌙'}
           </button>
 
-          {/* Sign In — desktop only */}
-          <form action={signInWithKeycloak} className="hidden md:block">
-            <button
-              type="submit"
-              className="py-[6px] px-4 rounded-[980px] bg-th-accent-blue text-white font-text text-[13px] font-normal border-none cursor-pointer whitespace-nowrap transition-colors duration-200 hover:bg-th-accent-blue-hover"
-            >
-              Sign In
-            </button>
-          </form>
+          {/* Sign In — desktop only. Hidden until CF-130 enables auth. */}
+          {AUTH_ENABLED && (
+            <form action={signInWithKeycloak} className="hidden md:block">
+              <button
+                type="submit"
+                className="py-[6px] px-4 rounded-[980px] bg-th-accent-blue text-white font-text text-[13px] font-normal border-none cursor-pointer whitespace-nowrap transition-colors duration-200 hover:bg-th-accent-blue-hover"
+              >
+                Sign In
+              </button>
+            </form>
+          )}
 
           {/* Hamburger — mobile only */}
           <button
@@ -108,14 +111,17 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-          <form action={signInWithKeycloak}>
-            <button
-              type="submit"
-              className="w-full flex items-center justify-center py-2.5 px-5 rounded-[980px] bg-th-accent-blue text-white font-text text-[17px] border-none cursor-pointer hover:bg-th-accent-blue-hover transition-colors duration-200"
-            >
-              Sign In
-            </button>
-          </form>
+          {/* Sign In — mobile menu. Hidden until CF-130 enables auth. */}
+          {AUTH_ENABLED && (
+            <form action={signInWithKeycloak}>
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center py-2.5 px-5 rounded-[980px] bg-th-accent-blue text-white font-text text-[17px] border-none cursor-pointer hover:bg-th-accent-blue-hover transition-colors duration-200"
+              >
+                Sign In
+              </button>
+            </form>
+          )}
         </div>
       )}
     </nav>
