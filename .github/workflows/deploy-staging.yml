@@ -1,0 +1,326 @@
+name: Deploy to Staging
+
+# Every merge to develop lands in staging automatically. Staging is the
+# proving ground — nothing reaches production without soaking here first.
+#
+# INERT UNTIL CF-117. This workflow no-ops until the repository variable
+# DEPLOY_ENABLED is set to 'true' (Settings → Secrets and variables →
+# Actions → Variables). Enable it once Terraform has provisioned ECR/ECS.
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Single service to deploy (blank = all changed)'
+        required: false
+        type: string
+
+concurrency:
+  # Never run two staging deploys at once — they race on task definitions.
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # required for AWS OIDC. No long-lived keys in GitHub.
+
+env:
+  AWS_REGION: ap-south-1
+  ENVIRONMENT: staging
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
+
+jobs:
+  guard:
+    name: Check deployment is enabled
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ vars.DEPLOY_ENABLED }}" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEPLOY_ENABLED is not 'true' — skipping. Set it once CF-117 has provisioned infrastructure."
+          fi
+
+  changes:
+    name: Detect changed services
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      # Everything that needs an image built.
+      buildable: ${{ steps.split.outputs.buildable }}
+      # ECS services only. Excludes db-migrations (a one-off task, not a
+      # service) and ai-service (Lambda, deployed with update-function-code).
+      ecs_services: ${{ steps.split.outputs.ecs_services }}
+      ai_service: ${{ steps.filter.outputs.ai-service }}
+      db_migrations: ${{ steps.filter.outputs.db-migrations }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auth-service:
+              - 'backend/auth-service/**'
+            media-service:
+              - 'backend/media-service/**'
+            scheduler-service:
+              - 'backend/scheduler-service/**'
+            analytics-service:
+              - 'backend/analytics-service/**'
+            ai-service:
+              - 'ai-service/**'
+            db-migrations:
+              - 'backend/db-migrations/**'
+
+      - name: Split into deploy targets
+        id: split
+        run: |
+          set -euo pipefail
+          ALL='${{ steps.filter.outputs.changes }}'
+          # db-migrations is built (it needs an image) but never "deployed" as
+          # a service; ai-service is built but deployed to Lambda.
+          BUILDABLE=$(echo "$ALL" | jq -c '.')
+          ECS=$(echo "$ALL" | jq -c 'map(select(. != "db-migrations" and . != "ai-service"))')
+          echo "buildable=$BUILDABLE" >> "$GITHUB_OUTPUT"
+          echo "ecs_services=$ECS" >> "$GITHUB_OUTPUT"
+          echo "buildable: $BUILDABLE"
+          echo "ecs:       $ECS"
+
+  # ── Build and push images, tagged with the Git SHA ────────────────
+  # Never :latest. The SHA is what makes rollback one line and an incident
+  # timeline reconstructable.
+  build:
+    name: Build ${{ matrix.service }}
+    needs: [ guard, changes ]
+    if: needs.guard.outputs.enabled == 'true' && needs.changes.outputs.buildable != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.buildable) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve build context
+        id: ctx
+        run: |
+          if [ "${{ matrix.service }}" = "ai-service" ]; then
+            echo "path=ai-service" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=backend/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.ctx.outputs.path }}
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/creatorflow/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          provenance: false
+
+  # ── Migrations run BEFORE any service is updated ──────────────────
+  # If this fails the deploy stops and no service is touched. Migrations must
+  # be backward compatible with the running version — during a rolling update
+  # old and new code share one schema.
+  migrate:
+    name: Run database migrations
+    needs: [ guard, changes, build ]
+    if: |
+      always() &&
+      needs.guard.outputs.enabled == 'true' &&
+      needs.changes.outputs.db_migrations == 'true' &&
+      !contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run db-migrations as a one-off ECS task
+        run: |
+          set -euo pipefail
+          TASK_ARN=$(aws ecs run-task \
+            --cluster staging-creatorflow \
+            --task-definition staging-db-migrations \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.STAGING_SUBNET_IDS }}],securityGroups=[${{ vars.STAGING_SG_ID }}],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+
+          echo "Migration task: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster staging-creatorflow --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks --cluster staging-creatorflow --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migrations failed with exit code $EXIT_CODE. No services were deployed."
+            exit 1
+          fi
+          echo "Migrations applied cleanly."
+
+  # ── INTERIM: rolling deploy with circuit breaker ──────────────────
+  # The standard for this project is CodeDeploy blue/green (CF-119). Until the
+  # deployment groups and second target groups exist, staging uses a rolling
+  # update with the ECS circuit breaker for automatic rollback.
+  #
+  # This is a documented stopgap, NOT the standard. Production never uses it —
+  # see deploy-production.yml and deployment-ci/SKILL.md. Once CF-119 lands,
+  # replace this job with the same aws-actions/amazon-ecs-deploy-task-definition
+  # + codedeploy-* configuration used in production (ALL_AT_ONCE for staging).
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    needs: [ guard, changes, build, migrate ]
+    if: |
+      always() &&
+      needs.guard.outputs.enabled == 'true' &&
+      needs.build.result == 'success' &&
+      (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: staging
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.ecs_services) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Register new task definition revision
+        id: taskdef
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.ECR_REGISTRY }}/creatorflow/${{ matrix.service }}:${{ github.sha }}"
+
+          aws ecs describe-task-definition \
+            --task-definition staging-${{ matrix.service }} \
+            --query 'taskDefinition' > taskdef.json
+
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions[0].image = $IMAGE
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' taskdef.json > new-taskdef.json
+
+          REVISION=$(aws ecs register-task-definition \
+            --cli-input-json file://new-taskdef.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+          echo "Registered $REVISION"
+
+      - name: Update service and wait for stability
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster staging-creatorflow \
+            --service staging-${{ matrix.service }} \
+            --task-definition ${{ steps.taskdef.outputs.revision }} \
+            --no-cli-pager > /dev/null
+
+          echo "Waiting for staging-${{ matrix.service }} to stabilise..."
+          if ! aws ecs wait services-stable \
+                --cluster staging-creatorflow \
+                --services staging-${{ matrix.service }}; then
+            echo "::error::Service did not stabilise. The circuit breaker should have rolled back — verify the running task definition."
+            exit 1
+          fi
+          echo "Deployed ${{ matrix.service }} @ ${{ github.sha }}"
+
+  # ── ai-service is Lambda, not ECS ─────────────────────────────────
+  # Publishes a version and moves the `live` alias in one step (AllAtOnce is
+  # the staging shift policy). Production uses a CodeDeploy canary — see CF-120.
+  # Clients must always invoke the alias, never $LATEST or a version number.
+  deploy-lambda:
+    name: Deploy ai-service (Lambda)
+    needs: [ guard, changes, build, migrate ]
+    if: |
+      always() &&
+      needs.guard.outputs.enabled == 'true' &&
+      needs.changes.outputs.ai_service == 'true' &&
+      needs.build.result == 'success' &&
+      (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish version and move the live alias
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.ECR_REGISTRY }}/creatorflow/ai-service:${{ github.sha }}"
+
+          aws lambda update-function-code \
+            --function-name staging-ai-service \
+            --image-uri "$IMAGE" \
+            --no-cli-pager > /dev/null
+          aws lambda wait function-updated --function-name staging-ai-service
+
+          VERSION=$(aws lambda publish-version \
+            --function-name staging-ai-service \
+            --description "${{ github.sha }}" \
+            --query 'Version' --output text)
+
+          aws lambda update-alias \
+            --function-name staging-ai-service \
+            --name live \
+            --function-version "$VERSION" \
+            --no-cli-pager > /dev/null
+
+          echo "staging-ai-service live alias -> version $VERSION ($IMAGE)"
+
+      - name: Smoke test via API Gateway
+        run: |
+          set -euo pipefail
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.STAGING_AI_API_URL }}/health")
+          if [ "$CODE" != "200" ]; then
+            echo "::error::ai-service health check returned $CODE"
+            exit 1
+          fi
+          echo "Health check OK."
+
+  summary:
+    name: Staging deploy summary
+    needs: [ guard, deploy, deploy-lambda ]
+    if: always() && needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {
+            echo "### Staging deployment"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Result | ${{ needs.deploy.result }} |"
+            echo ""
+            echo "Before promoting to production, complete the staging verification"
+            echo "checklist in \`deployment-ci/SKILL.md\`. Do not promote on the same"
+            echo "day as a non-trivial merge — scheduled jobs and SQS consumers only"
+            echo "misbehave over time."
+          } >> "$GITHUB_STEP_SUMMARY"

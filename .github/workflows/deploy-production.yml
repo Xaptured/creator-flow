@@ -1,0 +1,301 @@
+name: Deploy to Production
+
+# Production deploys promote an image that ALREADY RAN IN STAGING.
+# The image is retagged, never rebuilt — a rebuild is a different artifact,
+# and the thing you verified would not be the thing you shipped.
+#
+# INERT UNTIL CF-117. No-ops unless repository variable DEPLOY_ENABLED = 'true'.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      rollback_sha:
+        description: 'Roll back: deploy this previously-built SHA instead of HEAD'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-south-1
+  ENVIRONMENT: production
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
+
+jobs:
+  guard:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ vars.DEPLOY_ENABLED }}" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEPLOY_ENABLED is not 'true' — skipping."
+          fi
+
+          SHA="${{ inputs.rollback_sha }}"
+          if [ -z "$SHA" ]; then SHA="${{ github.sha }}"; fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Deploying SHA: $SHA"
+
+  # ── The image must already exist in ECR from the staging run ──────
+  # If it does not, this commit never went through staging. Stop.
+  verify-staged:
+    name: Verify image was built and staged
+    needs: guard
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      ecs_services: ${{ steps.present.outputs.ecs_services }}
+      ai_service: ${{ steps.present.outputs.ai_service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - id: present
+        run: |
+          set -euo pipefail
+          SHA="${{ needs.guard.outputs.sha }}"
+          ECS=()
+          AI=false
+
+          for svc in auth-service media-service scheduler-service analytics-service ai-service; do
+            if aws ecr describe-images \
+                 --repository-name "creatorflow/$svc" \
+                 --image-ids imageTag="$SHA" >/dev/null 2>&1; then
+              echo "found $svc:$SHA"
+              if [ "$svc" = "ai-service" ]; then AI=true; else ECS+=("$svc"); fi
+            fi
+          done
+
+          if [ ${#ECS[@]} -eq 0 ] && [ "$AI" = "false" ]; then
+            echo "::error::No images tagged $SHA exist in ECR. This commit was never built or deployed to staging. Production only promotes staged artifacts — see deployment-ci/SKILL.md."
+            exit 1
+          fi
+
+          if [ ${#ECS[@]} -eq 0 ]; then
+            echo "ecs_services=[]" >> "$GITHUB_OUTPUT"
+          else
+            printf -v JSON '"%s",' "${ECS[@]}"
+            echo "ecs_services=[${JSON%,}]" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ai_service=$AI" >> "$GITHUB_OUTPUT"
+
+  migrate:
+    name: Run database migrations
+    needs: [ guard, verify-staged ]
+    if: needs.guard.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    # GitHub Environment "production" — configure a required reviewer here so
+    # every production deploy needs an explicit human approval.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Snapshot the database first
+        # There is no rollback for a migration. Take the snapshot before, always.
+        run: |
+          set -euo pipefail
+          SNAP="prod-predeploy-$(date +%Y%m%d-%H%M%S)"
+          aws rds create-db-snapshot \
+            --db-instance-identifier prod-creatorflow \
+            --db-snapshot-identifier "$SNAP" >/dev/null
+          echo "Snapshot requested: $SNAP"
+          aws rds wait db-snapshot-available --db-snapshot-identifier "$SNAP"
+          echo "Snapshot available."
+
+      - name: Run db-migrations as a one-off ECS task
+        run: |
+          set -euo pipefail
+          TASK_ARN=$(aws ecs run-task \
+            --cluster prod-creatorflow \
+            --task-definition prod-db-migrations \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.PROD_SUBNET_IDS }}],securityGroups=[${{ vars.PROD_SG_ID }}],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+
+          aws ecs wait tasks-stopped --cluster prod-creatorflow --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster prod-creatorflow --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migrations failed (exit $EXIT_CODE). No services deployed. Restore from the pre-deploy snapshot if the schema is inconsistent."
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    needs: [ guard, verify-staged, migrate ]
+    if: needs.guard.outputs.enabled == 'true' && needs.verify-staged.outputs.ecs_services != '[]'
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.verify-staged.outputs.ecs_services) }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Record currently running revision
+        id: previous
+        run: |
+          PREV=$(aws ecs describe-services \
+            --cluster prod-creatorflow \
+            --services prod-${{ matrix.service }} \
+            --query 'services[0].taskDefinition' --output text)
+          echo "revision=$PREV" >> "$GITHUB_OUTPUT"
+          echo "::notice::Rollback target for ${{ matrix.service }}: $PREV"
+
+      - name: Render task definition with the promoted image
+        id: taskdef
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.ECR_REGISTRY }}/creatorflow/${{ matrix.service }}:${{ needs.guard.outputs.sha }}"
+
+          aws ecs describe-task-definition \
+            --task-definition prod-${{ matrix.service }} \
+            --query 'taskDefinition' > taskdef.json
+
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions[0].image = $IMAGE
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' taskdef.json > new-taskdef.json
+          echo "path=new-taskdef.json" >> "$GITHUB_OUTPUT"
+
+      - name: Write CodeDeploy appspec
+        run: |
+          cat > appspec.yaml <<'YAML'
+          version: 0.0
+          Resources:
+            - TargetService:
+                Type: AWS::ECS::Service
+                Properties:
+                  TaskDefinition: <TASK_DEFINITION>
+                  LoadBalancerInfo:
+                    ContainerName: ${{ matrix.service }}
+                    ContainerPort: 8080
+          YAML
+
+      # Blue/green: green comes up behind the test listener, gets validated,
+      # then traffic shifts linearly. Blue stays warm for the bake window, so
+      # rollback is a listener flip rather than another deploy cycle.
+      # Auto-rollback is alarm-driven — the CloudWatch alarms from CF-126 are
+      # attached to the deployment group in Terraform, not here.
+      - name: Blue/green deploy via CodeDeploy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.path }}
+          cluster: prod-creatorflow
+          service: prod-${{ matrix.service }}
+          codedeploy-appspec: appspec.yaml
+          codedeploy-application: creatorflow-prod-${{ matrix.service }}
+          codedeploy-deployment-group: prod-${{ matrix.service }}-dg
+          # Blocks until traffic has shifted and the bake window has elapsed.
+          # If an alarm fires in that window CodeDeploy rolls back and this fails.
+          wait-for-service-stability: true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.service }}"
+            echo "- Deployed: \`${{ needs.guard.outputs.sha }}\`"
+            echo "- Previous revision (rollback target): \`${{ steps.previous.outputs.revision }}\`"
+            echo "- Blue task set stays warm through the bake window — roll back by flipping the listener, not by redeploying."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── ai-service runs on Lambda, not ECS ────────────────────────────
+  deploy-lambda:
+    name: Deploy ai-service (Lambda)
+    needs: [ guard, verify-staged, migrate ]
+    if: needs.guard.outputs.enabled == 'true' && needs.verify-staged.outputs.ai_service == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Alias-based traffic shifting (CF-120). Clients always invoke the `live`
+      # alias — never $LATEST, never a version number. Rollback is repointing
+      # the alias, which is instant and leaves the old version untouched.
+      - name: Publish a new version
+        id: publish
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.ECR_REGISTRY }}/creatorflow/ai-service:${{ needs.guard.outputs.sha }}"
+
+          CURRENT=$(aws lambda get-alias --function-name prod-ai-service --name live \
+            --query 'FunctionVersion' --output text)
+          echo "previous=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "::notice::Rollback target: version $CURRENT"
+
+          aws lambda update-function-code \
+            --function-name prod-ai-service \
+            --image-uri "$IMAGE" \
+            --no-cli-pager > /dev/null
+          aws lambda wait function-updated --function-name prod-ai-service
+
+          NEW=$(aws lambda publish-version \
+            --function-name prod-ai-service \
+            --description "${{ needs.guard.outputs.sha }}" \
+            --query 'Version' --output text)
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Published version $NEW"
+
+      - name: Write CodeDeploy appspec
+        run: |
+          cat > appspec-lambda.yaml <<YAML
+          version: 0.0
+          Resources:
+            - ai-service:
+                Type: AWS::Lambda::Function
+                Properties:
+                  Name: prod-ai-service
+                  Alias: live
+                  CurrentVersion: "${{ steps.publish.outputs.previous }}"
+                  TargetVersion: "${{ steps.publish.outputs.new }}"
+          YAML
+
+      # Canary10Percent5Minutes: 10% of invocations hit the new version for five
+      # minutes. CloudWatch alarms on Errors and Duration (CF-126) roll the alias
+      # back automatically if the canary misbehaves.
+      - name: Shift alias via CodeDeploy canary
+        run: |
+          set -euo pipefail
+          ID=$(aws deploy create-deployment \
+            --application-name creatorflow-prod-ai-service \
+            --deployment-group-name prod-ai-service-dg \
+            --revision "revisionType=AppSpecContent,appSpecContent={content='$(cat appspec-lambda.yaml)'}" \
+            --query 'deploymentId' --output text)
+          echo "Deployment $ID — waiting for canary to complete"
+          if ! aws deploy wait deployment-successful --deployment-id "$ID"; then
+            echo "::error::Canary failed. CodeDeploy has rolled the live alias back to version ${{ steps.publish.outputs.previous }}."
+            exit 1
+          fi
+          echo "ai-service live alias now on version ${{ steps.publish.outputs.new }}"

@@ -153,7 +153,7 @@ cp ai-service/.env.example ai-service/.env
 
 | Doc | Description |
 |---|---|
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Branching strategy, commit convention, PR process |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Branching strategy, commit convention, PR process, merge strategy per target branch |
 | [`docs/architecture-overview.md`](docs/architecture-overview.md) | System design, service map, data flow |
 | [`docs/local-dev-setup.md`](docs/local-dev-setup.md) | Full local setup walkthrough |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
