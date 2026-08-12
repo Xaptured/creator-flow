@@ -1,110 +1,161 @@
 name: CI
 
+# Runs on PRs into BOTH develop and main. A protected branch that requires
+# approval but runs no checks is a review of unverified code.
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
+
+# Supersede in-flight runs for the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
+  # ── Work out what actually changed ────────────────────────────────
+  changes:
+    name: Detect changed components
+    runs-on: ubuntu-latest
+    outputs:
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      media-service: ${{ steps.filter.outputs.media-service }}
+      scheduler-service: ${{ steps.filter.outputs.scheduler-service }}
+      analytics-service: ${{ steps.filter.outputs.analytics-service }}
+      db-migrations: ${{ steps.filter.outputs.db-migrations }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ai-service: ${{ steps.filter.outputs.ai-service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auth-service:
+              - 'backend/auth-service/**'
+            media-service:
+              - 'backend/media-service/**'
+            scheduler-service:
+              - 'backend/scheduler-service/**'
+            analytics-service:
+              - 'backend/analytics-service/**'
+            db-migrations:
+              - 'backend/db-migrations/**'
+            frontend:
+              - 'frontend/**'
+            ai-service:
+              - 'ai-service/**'
+
   # ── Spring Boot services ──────────────────────────────────────────
-  build-auth-service:
-    name: Build auth-service
+  # Java 21 must match the Dockerfile base image.
+  # Tests are NOT skipped. `-DskipTests` is banned in CI — see deployment-ci skill.
+  backend:
+    name: Build ${{ matrix.service }}
+    needs: changes
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [ auth-service, media-service, scheduler-service, analytics-service, db-migrations ]
+    if: |
+      needs.changes.outputs.auth-service == 'true' ||
+      needs.changes.outputs.media-service == 'true' ||
+      needs.changes.outputs.scheduler-service == 'true' ||
+      needs.changes.outputs.analytics-service == 'true' ||
+      needs.changes.outputs.db-migrations == 'true'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: Build
-        run: mvn -f backend/auth-service/pom.xml clean verify -DskipTests
 
-  build-media-service:
-    name: Build media-service
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: Build
-        run: mvn -f backend/media-service/pom.xml clean verify -DskipTests
-
-  build-scheduler-service:
-    name: Build scheduler-service
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check if pom.xml exists
-        id: check
+      - name: Skip if this service did not change
+        id: should-run
         run: |
-          if [ -f "backend/scheduler-service/pom.xml" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          case "${{ matrix.service }}" in
+            auth-service)      changed="${{ needs.changes.outputs.auth-service }}" ;;
+            media-service)     changed="${{ needs.changes.outputs.media-service }}" ;;
+            scheduler-service) changed="${{ needs.changes.outputs.scheduler-service }}" ;;
+            analytics-service) changed="${{ needs.changes.outputs.analytics-service }}" ;;
+            db-migrations)     changed="${{ needs.changes.outputs.db-migrations }}" ;;
+          esac
+          if [ "$changed" = "true" ] && [ -f "backend/${{ matrix.service }}/pom.xml" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping ${{ matrix.service }} — unchanged or not scaffolded"
           fi
+
       - uses: actions/setup-java@v4
-        if: steps.check.outputs.exists == 'true'
+        if: steps.should-run.outputs.run == 'true'
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - name: Build
-        if: steps.check.outputs.exists == 'true'
-        run: mvn -f backend/scheduler-service/pom.xml clean verify -DskipTests
-      - name: Skip
-        if: steps.check.outputs.exists == 'false'
-        run: echo "scheduler-service not scaffolded yet — skipping"
 
-  build-analytics-service:
-    name: Build analytics-service
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check if pom.xml exists
-        id: check
-        run: |
-          if [ -f "backend/analytics-service/pom.xml" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-      - uses: actions/setup-java@v4
-        if: steps.check.outputs.exists == 'true'
+      - name: Build and test
+        if: steps.should-run.outputs.run == 'true'
+        run: mvn -B -f backend/${{ matrix.service }}/pom.xml clean verify
+
+      - name: Publish test report
+        if: steps.should-run.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: Build
-        if: steps.check.outputs.exists == 'true'
-        run: mvn -f backend/analytics-service/pom.xml clean verify -DskipTests
-      - name: Skip
-        if: steps.check.outputs.exists == 'false'
-        run: echo "analytics-service not scaffolded yet — skipping"
+          name: surefire-${{ matrix.service }}
+          path: backend/${{ matrix.service }}/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
 
-  # ── Next.js frontend ─────────────────────────────────────────────
-  build-frontend:
+  # ── Next.js frontend ──────────────────────────────────────────────
+  # Node 22 must match the Vercel "Node.js Version" project setting.
+  frontend:
     name: Build frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
+
       - name: Install
         run: npm ci --prefix frontend
+
+      - name: Lint
+        run: npm run lint --prefix frontend
+
       - name: Build
+        # No auth secrets are set here on purpose. CF-112 ships with
+        # NEXT_PUBLIC_AUTH_ENABLED=false and the build must succeed without
+        # AUTH_SECRET or AUTH_KEYCLOAK_* present, exactly as it does on Vercel.
+        env:
+          NEXT_PUBLIC_AUTH_ENABLED: 'false'
         run: npm run build --prefix frontend
 
+      - name: Assert middleware is in the right place
+        # A root-level middleware.ts is silently ignored when the app uses a
+        # src/ directory — no build error, no `ƒ Middleware` in the output, and
+        # the route gate simply does not run. Cheap guard against a silent regression.
+        run: |
+          if [ ! -f frontend/src/middleware.ts ]; then
+            echo "::error::frontend/src/middleware.ts is missing. Next.js does not pick up middleware at the project root when the app lives in src/."
+            exit 1
+          fi
+          if [ -f frontend/middleware.ts ]; then
+            echo "::error::frontend/middleware.ts exists and is dead code. Next.js ignores it. Delete it — the live file is frontend/src/middleware.ts."
+            exit 1
+          fi
+          echo "Middleware location OK."
+
   # ── NestJS AI service ─────────────────────────────────────────────
-  build-ai-service:
+  ai-service:
     name: Build ai-service
+    needs: changes
+    if: needs.changes.outputs.ai-service == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -119,7 +170,42 @@ jobs:
           cache-dependency-path: ai-service/package-lock.json
       - name: Install
         run: npm ci --prefix ai-service
+      - name: Lint
+        run: npm run lint --prefix ai-service --if-present
       - name: Build
         run: npm run build --prefix ai-service
       - name: Test
         run: npm test --prefix ai-service
+
+  # ── Secret scanning ───────────────────────────────────────────────
+  secrets-scan:
+    name: Scan for committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Single required status check ──────────────────────────────────
+  # Point branch protection at this one job. Skipped matrix jobs report
+  # "skipped", which would otherwise block a merge if required directly.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [ backend, frontend, ai-service, secrets-scan ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Job results: $results"
+          for r in $results; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::A required job did not pass"
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped."

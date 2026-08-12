@@ -249,8 +249,35 @@ When you open a PR, fill in this template:
 - Every PR into `develop` requires **1 approval**
 - Every PR into `main` requires **1 approval + all CI checks green**
 - The author merges after approval — not the reviewer
-- Use **squash merge** into both `develop` and `main`
 - Resolve all review comments before merging — do not dismiss reviews
+
+### Merge Strategy
+
+The merge type depends on the target branch. This is not a style preference — using the wrong one on `main` causes recurring conflicts.
+
+| PR | Merge type | Why |
+|---|---|---|
+| `feature/*` → `develop` | **Squash merge** | One ticket, one commit. Keeps `develop` history readable and matches one-branch-per-JIRA-ticket. |
+| `hotfix/*` → `main` | **Squash merge** | Same reasoning — a hotfix is a single logical change. |
+| `hotfix/*` → `develop` | **Merge commit** | Preserves the link to the commit already on `main`, so the fix is not applied twice. |
+| **`develop` → `main`** | **Merge commit** | See below. Never squash a release. |
+
+#### Why `develop` → `main` must not be squashed
+
+Squashing collapses every commit on `develop` into one new commit on `main` that has no ancestry link back to those originals. `main` and `develop` then never share real history.
+
+The consequence shows up on the *next* release: Git still calculates the merge base from the last true common ancestor, so the PR re-lists commits that are already in production and can raise conflicts on code nobody touched. Each release compounds the problem.
+
+A merge commit keeps `main` a true ancestor-linked superset of released work. `git log main` still shows the individual feature commits, and `git merge-base main develop` stays meaningful — which also means release diffs and rollbacks are accurate.
+
+Concretely, when releasing:
+
+```bash
+# Open the PR: base = main, compare = develop
+# Merge using "Create a merge commit" — NOT "Squash and merge"
+```
+
+If GitHub's merge button defaults to squash, change it in the dropdown before merging. Repository settings can also allow both types so the correct one can be chosen per PR.
 
 ### Draft PRs
 

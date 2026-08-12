@@ -50,3 +50,4 @@ logs/
 .agents/skills/
 .claude/
 skills-lock.json
+deployment-ci/
