@@ -1,0 +1,47 @@
+# Terraform state — NEVER commit. Contains plaintext secrets.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# EXCEPTION: bootstrap runs on local state by design (it creates the bucket
+# that everything else stores state in). It provisions no secrets, so its
+# state is safe to track and must be, or the bucket becomes unmanaged.
+!bootstrap/terraform.tfstate
+!bootstrap/terraform.tfstate.backup
+
+# Provider binaries and module cache
+.terraform/
+.terraform.lock.hcl.bak
+
+# Plan output files can contain secrets in cleartext
+*.tfplan
+*.tfplan.*
+plan.out
+
+# Crash logs may contain state fragments
+crash.log
+crash.*.log
+
+# Any tfvars carrying secrets. The committed terraform.tfvars files contain
+# no secrets by policy — anything sensitive goes to Secrets Manager.
+*.auto.tfvars
+secrets.tfvars
+*-secrets.tfvars
+
+# The repo-root .gitignore blanket-ignores *.tfvars. That is a sensible default
+# in general, but this file holds environment configuration — NAT mode, Aurora
+# capacity, region — and no secrets. It must be tracked, or the environment is
+# only reproducible on one laptop. Re-include explicitly.
+#
+# Add a matching line here when envs/production is created at CF-131, or its
+# tfvars will be silently ignored and the config will exist nowhere but your
+# machine.
+!envs/staging/terraform.tfvars
+
+# Local overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
