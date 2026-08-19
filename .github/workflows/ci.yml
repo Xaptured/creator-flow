@@ -31,7 +31,7 @@ jobs:
       ai-service: ${{ steps.filter.outputs.ai-service }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
