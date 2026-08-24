@@ -28,7 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
-		<aws.sdk.version>2.25.60</aws.sdk.version>
+		<aws.sdk.version>2.54.1</aws.sdk.version>
 	</properties>
 	<dependencies>
 		<dependency>
